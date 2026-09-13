@@ -17,16 +17,13 @@ npm run build   # production build into dist/
 
 ## Deploying
 
-The app is a static site; any static host works. Configs are included for:
+Hosted on Netlify, which builds from `main` on every push. Settings live in
+`netlify.toml`, so the dashboard needs no manual build configuration.
 
-| Host | What it uses | Repo can stay private |
-|---|---|---|
-| Netlify | `netlify.toml` | yes |
-| Vercel | `vercel.json` | yes |
-| GitHub Pages | `.github/workflows/deploy-pages.yml` | no (free plan) |
-
-GitHub Pages serves a project at `/<repo>/` rather than the domain root, so
-that workflow builds with `BASE_PATH` set; the PWA manifest follows it.
+The app is a plain static site, so any static host works. A host that serves
+the app from a subfolder rather than the domain root (GitHub Pages project
+sites, for example) needs `BASE_PATH=/subfolder/` at build time; the PWA
+manifest follows it.
 
 ## Backups
 
