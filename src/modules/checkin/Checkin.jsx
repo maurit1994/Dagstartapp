@@ -13,6 +13,7 @@ import {
   questionsForMode,
 } from '../../lib/questions.js'
 import { getLocalDateKey, formatDateKeyNL } from '../../lib/date.js'
+import { isDagstartDone } from '../../lib/dagstart.js'
 import { getCheckin, saveCheckin } from '../../lib/storage.js'
 
 /**
@@ -26,8 +27,11 @@ export default function Checkin({ onSaved, now = new Date() }) {
   const dateKey = getLocalDateKey(now)
   const stored = getCheckin(dateKey)
 
+  // Not `stored === null`: the evening check-in writes into the same day
+  // entry, so saving only the evening would otherwise show an empty
+  // "Dagstart ✓" for a morning that never happened.
   const [existing, setExisting] = useState(stored)
-  const [isEditing, setIsEditing] = useState(stored === null)
+  const [isEditing, setIsEditing] = useState(!isDagstartDone(stored))
 
   const [mode, setMode] = useState('lite')
   const [answers, setAnswers] = useState(() => stored?.answers ?? {})
@@ -76,7 +80,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
     }
   }
 
-  if (!isEditing && existing) {
+  if (!isEditing && isDagstartDone(existing)) {
     return (
       <CheckinSummary entry={existing} dateKey={dateKey} onEdit={beginEdit} />
     )
@@ -86,9 +90,11 @@ export default function Checkin({ onSaved, now = new Date() }) {
 
   return (
     <Screen title="Dagstart">
-      <ModeSwitch mode={mode} onChange={changeMode} />
+      {/* Only while the written questions are on screen — it does nothing on
+          the mood, body and note steps, and it costs room the body map needs. */}
+      {step < questions.length && <ModeSwitch mode={mode} onChange={changeMode} />}
 
-      <div className="mt-4 mb-5">
+      <div className="mb-5 mt-4">
         <div className="flex gap-1" aria-hidden="true">
           {Array.from({ length: stepCount }, (_, index) => (
             <div

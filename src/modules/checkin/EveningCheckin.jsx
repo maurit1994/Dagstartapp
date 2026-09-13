@@ -10,19 +10,28 @@ import {
   REACTIVITY_SCALE,
 } from '../../lib/questions.js'
 import { getLocalDateKey } from '../../lib/date.js'
+import { isDagstartDone } from '../../lib/dagstart.js'
 import { getCheckin, getTodayIntention, saveEvening } from '../../lib/storage.js'
 
 /**
  * The evening half of the day, carried over from the user's previous app:
- * pain now, focus, whether the morning's priority was reached, emotional
- * reactivity, caffeine after 14:00, and the first thing done this morning.
+ * focus, whether the morning's priority was reached, emotional reactivity,
+ * caffeine after 14:00, and the first thing done this morning.
+ *
+ * The old app's "Pijn nu" is deliberately NOT asked here. Anker records pain
+ * in the Dagstart's body map — per region, with tension alongside it — so a
+ * second single-number pain question put the same thing on screen twice at
+ * lower fidelity. The field survives in storage and old answers still show in
+ * the summary; it is only no longer asked.
  *
  * Caffeine and "first thing" look trivial beside the rest. They are the two
  * behavioural dials in the set — the ones a pattern can actually be traced
  * back to — which is why they are here and not dropped as noise.
  *
- * Collapsed until the evening so the Vandaag screen has exactly one obvious
- * thing to do at any hour.
+ * Collapsed until BOTH the clock says evening and the Dagstart is done, so
+ * the Vandaag screen has exactly one obvious thing to do at any moment.
+ * Opening it while the morning is still half-finished put two forms on screen
+ * at once and asked about focus in the middle of a morning check-in.
  */
 
 /** Local hour from which the evening card opens by itself. */
@@ -31,11 +40,13 @@ export const EVENING_HOUR = 17
 export default function EveningCheckin({ onSaved, now = new Date() }) {
   const dateKey = getLocalDateKey(now)
   const priority = getTodayIntention()
-  const stored = getCheckin(dateKey)?.evening ?? null
+  const entry = getCheckin(dateKey)
+  const stored = entry?.evening ?? null
+  const morningDone = isDagstartDone(entry)
 
   const [saved, setSaved] = useState(stored)
   const [isOpen, setIsOpen] = useState(
-    () => stored === null && now.getHours() >= EVENING_HOUR,
+    () => stored === null && morningDone && now.getHours() >= EVENING_HOUR,
   )
 
   const [form, setForm] = useState(() => ({
@@ -77,7 +88,11 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
   if (!isOpen) {
     return (
       <Screen title="Avond">
-        <p>Vanaf {EVENING_HOUR}:00 vraag ik hoe de dag ging.</p>
+        <p>
+          {morningDone
+            ? `Vanaf ${EVENING_HOUR}:00 vraag ik hoe de dag ging.`
+            : 'Eerst je dagstart. Vanavond vraag ik hoe het ging.'}
+        </p>
         <Button
           variant="secondary"
           className="mt-3 w-full"
@@ -91,13 +106,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
 
   return (
     <Screen title="Hoe ging de dag?">
-      <Scale
-        label="Pijn nu"
-        scale={PAIN_SCALE}
-        value={form.pijn}
-        onSelect={(n) => set('pijn', n)}
-      />
-
       <Scale
         label="Focus vandaag"
         scale={FOCUS_SCALE}

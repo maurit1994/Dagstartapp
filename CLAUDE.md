@@ -68,6 +68,12 @@ records the wrong side for months. It is covered by tests in
 
 Limbs appear on both views and map to the SAME id: there is only one left arm.
 
+The figure is capped by HEIGHT as well as width (`max-h-[46vh]`), and the
+score panel is `sticky` at the bottom. Both exist because the first version
+was unusable on a phone: a 1:2 figure at full width ran to ~540px, so tapping
+a region put the score buttons below the fold and you had to scroll away from
+the body to reach them. Tap and score must stay on ONE screen.
+
 ## The Dagstart questions
 
 `lib/questions.js`. The wording is taken VERBATIM from the user's previous app
@@ -93,6 +99,23 @@ whether it was reached and quotes it back. It is also what the Vandaag screen
 shows at the top all day. Before v4 it lived in its own `anker_v1_intentions`
 key; `migrateCheckins` folds that legacy map into `answers.bereiken` on read
 and never deletes it, so the move stays reversible.
+
+## One thing at a time on Vandaag
+
+The Vandaag screen shows the Dagstart OR the evening, never both open at once.
+`lib/dagstart.js`'s `isDagstartDone` is the gate: the evening card stays shut
+until the morning is answered AND the clock says evening. Both open at once
+meant two forms on screen and questions about focus in the middle of a morning
+check-in.
+
+`isDagstartDone` is also why the check-in summary is not keyed off "an entry
+exists": the evening writes into the SAME day entry, so saving only the
+evening used to show an empty "Dagstart ✓" for a morning that never happened.
+
+The evening deliberately does NOT ask "Pijn nu". The body map already records
+pain per region with tension beside it; a second single-number pain question
+put the same thing on screen twice, at lower fidelity. The field stays in the
+schema and old answers still render — only the question is gone.
 
 ## The PIN
 

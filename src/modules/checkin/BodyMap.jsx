@@ -33,7 +33,11 @@ export default function BodyMap({ view, scores, selected, onSelect }) {
   return (
     <svg
       viewBox="0 0 200 400"
-      className="mx-auto block h-auto w-full max-w-[270px]"
+      // Capped by HEIGHT as well as width: a 1:2 figure at full phone width
+      // runs to ~540px, which pushes its own legs and the score panel off the
+      // screen. 46vh keeps the whole body in view on a phone while leaving
+      // room for the sticky panel underneath.
+      className="mx-auto block h-auto max-h-[46vh] w-full max-w-[230px]"
       role="group"
       aria-label={view === 'front' ? 'Lichaam, voorkant' : 'Lichaam, achterkant'}
     >

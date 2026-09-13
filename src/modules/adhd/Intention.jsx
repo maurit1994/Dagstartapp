@@ -1,6 +1,5 @@
 import Screen from '../../components/Screen.jsx'
 import { getTodayIntention } from '../../lib/storage.js'
-import { QUESTIONS } from '../../lib/questions.js'
 
 /**
  * Today's priority, kept visible at the top of the Vandaag screen.
@@ -13,14 +12,10 @@ import { QUESTIONS } from '../../lib/questions.js'
 export default function Intention() {
   const priority = getTodayIntention()
 
-  if (!priority) {
-    return (
-      <Screen title="Wat telt vandaag?">
-        Vul je dagstart in — bij “{QUESTIONS.bereiken.q}” — en je prioriteit
-        staat hier de hele dag.
-      </Screen>
-    )
-  }
+  // Nothing to show until the Dagstart has been answered. A card telling you
+  // to fill in the form directly below it is noise, and on the body step it
+  // costs the screen room the figure needs.
+  if (!priority) return null
 
   return (
     <Screen title="Vandaag telt">

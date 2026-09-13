@@ -36,11 +36,8 @@ export default function BodyStep({ value, onChange }) {
   return (
     <div>
       <p className="text-base text-anker-text">Waar zit het vandaag?</p>
-      <p className="mt-1 text-sm text-anker-muted">
-        Tik een lichaamsdeel aan. Niets aantikken mag ook.
-      </p>
 
-      <div className="mt-4 flex gap-2" role="tablist" aria-label="Voor- of achterkant">
+      <div className="mt-3 flex gap-2" role="tablist" aria-label="Voor- of achterkant">
         {[
           { id: 'front', label: 'Voorkant' },
           { id: 'back', label: 'Achterkant' },
@@ -51,7 +48,7 @@ export default function BodyStep({ value, onChange }) {
             role="tab"
             aria-selected={view === v.id}
             onClick={() => setView(v.id)}
-            className={`min-h-11 flex-1 rounded-xl border text-sm transition ${
+            className={`min-h-10 flex-1 rounded-xl border text-sm transition ${
               view === v.id
                 ? 'border-anker-accent bg-anker-accent/15 text-anker-text'
                 : 'border-anker-border bg-anker-surface text-anker-muted'
@@ -62,7 +59,7 @@ export default function BodyStep({ value, onChange }) {
         ))}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <BodyMap
           view={view}
           scores={scores}
@@ -72,10 +69,14 @@ export default function BodyStep({ value, onChange }) {
       </div>
 
       {selected ? (
+        // Sticky, so tapping a region and setting its score happen on ONE
+        // screen. The figure is taller than a phone viewport; before this the
+        // panel appeared below it and you had to scroll away from the body to
+        // reach the numbers, then scroll back to see what you had marked.
         <div
           role="group"
           aria-label={`Scores voor ${getRegionLabel(selected)}`}
-          className="mt-4 rounded-xl border border-anker-border bg-anker-bg p-3"
+          className="sticky bottom-2 z-10 mt-3 rounded-xl border border-anker-accent/50 bg-anker-surface p-3 shadow-lg shadow-slate-950/60"
         >
           <div className="flex items-center justify-between">
             <p className="text-anker-text">{getRegionLabel(selected)}</p>
@@ -89,9 +90,9 @@ export default function BodyStep({ value, onChange }) {
           </div>
 
           {BODY_MEASURES.map((measure) => (
-            <div key={measure.key} className="mt-3">
-              <p className="text-sm text-anker-muted">{measure.label}</p>
-              <div className="mt-1.5 flex gap-1.5">
+            <div key={measure.key} className="mt-2">
+              <p className="text-xs text-anker-muted">{measure.label}</p>
+              <div className="mt-1 flex gap-1.5">
                 {[0, 1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
@@ -102,7 +103,7 @@ export default function BodyStep({ value, onChange }) {
                     className={`min-h-11 flex-1 rounded-lg border text-sm transition ${
                       current[measure.key] === n
                         ? 'border-anker-accent bg-anker-accent/20 text-anker-text'
-                        : 'border-anker-border bg-anker-surface text-anker-muted'
+                        : 'border-anker-border bg-anker-bg text-anker-muted'
                     }`}
                   >
                     {n}
@@ -113,7 +114,7 @@ export default function BodyStep({ value, onChange }) {
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-center text-sm text-anker-muted">
+        <p className="mt-3 text-center text-sm text-anker-muted">
           Tik een lichaamsdeel aan om te scoren.
         </p>
       )}
