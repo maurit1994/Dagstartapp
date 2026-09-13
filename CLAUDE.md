@@ -16,8 +16,12 @@ none should be added.
 
 - `npm install` — install dependencies
 - `npm run dev` — local dev server (http://localhost:5173)
+- `npm test` — run the Vitest suite (data logic); `npm run test:watch` to watch
 - `npm run build` — production build into `dist/`
 - `npm run preview` — serve the production build locally
+- `BASE_PATH=/Repo/ npm run build` — build for a host that serves the app from
+  a subfolder (GitHub Pages project sites). Netlify/Vercel/Cloudflare need no
+  BASE_PATH; the PWA manifest follows it automatically.
 
 ## Architecture
 
@@ -25,7 +29,8 @@ none should be added.
   import from `lib/` and `components/`. A module must never import from
   another module.
 - `src/lib/` — shared logic. `storage.js` is the ONLY file allowed to touch
-  `localStorage`.
+  `localStorage`. Also: `date.js` (all date keys), `regions.js` (the permanent
+  body-region ids), `streak.js`, `backup.js` (export/import), `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs.
 
@@ -37,6 +42,18 @@ none should be added.
 - UI language is Dutch. Code, identifiers and comments are English.
 - Pain is stored as `[{ region, intensity }]` against stable region ids.
   This shape is a permanent contract; changing it is a migration, not an edit.
+
+## Data safety — non-negotiable
+
+This app holds someone's health record and has no backend to fall back on.
+- Never change the shape of stored data without a migration path AND a test.
+- Never let a failed write pass silently: `storage.js` throws
+  `StorageWriteError` and the UI must surface it.
+- Never repair or delete data that fails to parse — leave the raw value in
+  place so it can be rescued by hand.
+- Import defaults to merge and must never overwrite a newer entry with an
+  older one.
+- Any change under `src/lib/` needs `npm test` green before it is pushed.
 
 ## Guardrails
 
