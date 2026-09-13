@@ -13,12 +13,50 @@
  * v2 -> v3: a day gained an optional `evening` block. Purely additive: old
  * days get `evening: null`, which is exactly true — no evening check-in was
  * ever recorded for them.
+ *
+ * v3 -> v4: a day gained `mode` (lite/full) and `answers` (the Dagstart
+ * questions), and the evening gained five fields. Additive, plus one MOVE:
+ * the daily priority used to live in its own key, `anker_v1_intentions`, and
+ * is now `answers.bereiken`. migrateCheckins folds that legacy map in on read
+ * — an existing answer always wins, the legacy value only fills a gap, and a
+ * date present only in the legacy map gets an entry created so nothing
+ * written before this change becomes unreachable. The legacy key is never
+ * deleted, so the move stays recoverable.
  */
 
-export const CURRENT_SCHEMA_VERSION = 3
+export const CURRENT_SCHEMA_VERSION = 4
 
-/** How a day's intention turned out. null means not answered. */
+/** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
+
+const MODES = ['lite', 'full']
+const FIRST_THING_VALUES = ['Telefoon', 'Daglicht', 'Bewegen', 'Anders']
+const QUESTION_IDS = [
+  'goed',
+  'dankbaar',
+  'bereiken',
+  'gedragen',
+  'onrustig',
+  'zin',
+  'weekend',
+]
+
+/** Keep only known question ids with non-empty answers. */
+function cleanAnswers(answers) {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return {}
+  const out = {}
+  for (const id of QUESTION_IDS) {
+    const value = answers[id]
+    if (typeof value === 'string' && value.trim()) out[id] = value.trim()
+  }
+  return out
+}
+
+/** A 0-5 score, or null when the question was not answered at all. */
+function toScoreOrNull(value) {
+  if (value === null || value === undefined || value === '') return null
+  return toScore(value)
+}
 
 /** Clamp anything to a whole number in 0-5; nonsense becomes 0. */
 function toScore(value) {
@@ -41,6 +79,8 @@ export function migrateCheckin(entry) {
 
   return {
     mental: entry.mental ?? null,
+    mode: MODES.includes(entry.mode) ? entry.mode : 'lite',
+    answers: cleanAnswers(entry.answers),
     evening: migrateEvening(entry.evening),
     body: body
       .filter((b) => b && typeof b.region === 'string')
@@ -74,19 +114,67 @@ function migrateEvening(evening) {
     : null
   const note = typeof evening.note === 'string' ? evening.note : ''
 
-  // An evening block with nothing answered is not a check-in.
-  if (mental === null && intention === null && note === '') return null
+  const pijn = toScoreOrNull(evening.pijn)
+  const focus = toScoreOrNull(evening.focus)
+  const reactief = toScoreOrNull(evening.reactief)
+  const cafeine = typeof evening.cafeine === 'boolean' ? evening.cafeine : null
+  const eerste = FIRST_THING_VALUES.includes(evening.eerste) ? evening.eerste : null
 
-  return { mental, intention, note, savedAt: evening.savedAt ?? Date.now() }
+  // An evening block with nothing answered is not a check-in.
+  const answeredSomething =
+    mental !== null ||
+    intention !== null ||
+    pijn !== null ||
+    focus !== null ||
+    reactief !== null ||
+    cafeine !== null ||
+    eerste !== null ||
+    note !== ''
+  if (!answeredSomething) return null
+
+  return {
+    mental,
+    intention,
+    pijn,
+    focus,
+    reactief,
+    cafeine,
+    eerste,
+    note,
+    savedAt: evening.savedAt ?? Date.now(),
+  }
 }
 
-/** Bring a whole date-keyed map of check-ins up to the current shape. */
-export function migrateCheckins(all) {
-  if (!all || typeof all !== 'object' || Array.isArray(all)) return {}
+/**
+ * Bring a whole date-keyed map of check-ins up to the current shape.
+ *
+ * @param {object} all
+ * @param {object} [legacyIntentions] the pre-v4 `anker_v1_intentions` map.
+ *   Its values become `answers.bereiken` where a day has no answer of its own.
+ */
+export function migrateCheckins(all, legacyIntentions = {}) {
+  const source = all && typeof all === 'object' && !Array.isArray(all) ? all : {}
+  const legacy =
+    legacyIntentions && typeof legacyIntentions === 'object' &&
+    !Array.isArray(legacyIntentions)
+      ? legacyIntentions
+      : {}
+
   const out = {}
-  for (const [dateKey, entry] of Object.entries(all)) {
+  for (const [dateKey, entry] of Object.entries(source)) {
     const migrated = migrateCheckin(entry)
     if (migrated) out[dateKey] = migrated
+  }
+
+  for (const [dateKey, text] of Object.entries(legacy)) {
+    if (typeof text !== 'string' || !text.trim()) continue
+    // A day that exists only in the legacy map still needs an entry, or the
+    // priority the user typed would simply disappear from the app.
+    if (!out[dateKey]) out[dateKey] = migrateCheckin({})
+    // An answer given since the move always wins over the legacy value.
+    if (!out[dateKey].answers.bereiken) {
+      out[dateKey].answers = { ...out[dateKey].answers, bereiken: text.trim() }
+    }
   }
   return out
 }

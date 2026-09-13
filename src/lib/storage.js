@@ -98,7 +98,9 @@ function writeJSON(key, value) {
 export function getAllCheckins() {
   // Everything leaving this function is in the CURRENT shape, whatever shape
   // it happens to have on disk. The rest of the app never sees an old one.
-  return migrateCheckins(readJSON(KEYS.checkins, {}))
+  // The legacy intentions map is folded in here rather than rewritten on
+  // disk, so the move stays reversible.
+  return migrateCheckins(readJSON(KEYS.checkins, {}), readJSON(KEYS.intentions, {}))
 }
 
 /** One day's check-in, or null if that day has none. */
@@ -114,7 +116,7 @@ export function getTodayCheckin() {
 /**
  * Create or replace one day's check-in.
  * @param {string} dateKey  "YYYY-MM-DD" from lib/date.js
- * @param {{mental: number|null, body: Array<{region: string, pain: number, tension: number}>, note: string}} entry
+ * @param {{mental: number|null, mode: 'lite'|'full', answers: object, body: Array<{region: string, pain: number, tension: number}>, note: string}} entry
  */
 export function saveCheckin(dateKey, entry) {
   const all = getAllCheckins()
@@ -192,30 +194,29 @@ export function deleteThought(id) {
 
 /* --------------------------------------------------------------- intentions */
 
-/** All daily intentions, keyed by local date: { "2026-09-13": "bellen" }. */
-export function getAllIntentions() {
-  const value = readJSON(KEYS.intentions, {})
-  return typeof value === 'object' && !Array.isArray(value) ? value : {}
-}
-
-/** One day's intention, or '' if that day has none. */
+/**
+ * The day's priority — the answer to "Wat wil ik vandaag écht bereiken?".
+ *
+ * Before v4 this lived in its own `anker_v1_intentions` key. It now lives in
+ * the day's answers; migrateCheckins folds the legacy map in on read, so both
+ * old and new days answer this the same way.
+ */
 export function getIntention(dateKey) {
-  return getAllIntentions()[dateKey] ?? ''
+  return getCheckin(dateKey)?.answers?.bereiken ?? ''
 }
 
-/** Today's intention, or ''. */
+/** Today's priority, or ''. */
 export function getTodayIntention() {
   return getIntention(getLocalDateKey())
 }
 
-/** Set or clear one day's intention. Empty text removes the day entirely. */
-export function saveIntention(dateKey, text) {
-  const all = getAllIntentions()
-  const trimmed = String(text ?? '').trim()
-  if (trimmed) all[dateKey] = trimmed
-  else delete all[dateKey]
-  writeJSON(KEYS.intentions, all)
-  return trimmed
+/** All days that have a priority, keyed by date. */
+export function getAllIntentions() {
+  const out = {}
+  for (const [dateKey, entry] of Object.entries(getAllCheckins())) {
+    if (entry.answers?.bereiken) out[dateKey] = entry.answers.bereiken
+  }
+  return out
 }
 
 /* --------------------------------------------------------------------- meta */
@@ -243,6 +244,8 @@ export function exportAll() {
     exportedAt: Date.now(),
     checkins: getAllCheckins(),
     thoughts: getThoughts(),
+    // Kept for backwards compatibility: an older build of Anker reads this
+    // key. Current builds derive it from the check-ins above.
     intentions: getAllIntentions(),
     meta: getMeta(),
   }
@@ -296,8 +299,10 @@ export function importAll(data, mode = 'merge') {
   }
   thoughts.sort((a, b) => b.createdAt - a.createdAt)
 
-  // Intentions are a plain date -> text map; keep whatever is already here.
-  const intentions = { ...incomingIntentions, ...getAllIntentions() }
+  // An incoming backup's intentions map only matters for days it brings that
+  // carry no answers of their own; migrateCheckins applies the same "existing
+  // answer wins" rule on the next read.
+  const intentions = { ...readJSON(KEYS.intentions, {}), ...incomingIntentions }
 
   writeJSON(KEYS.checkins, checkins)
   writeJSON(KEYS.thoughts, thoughts)

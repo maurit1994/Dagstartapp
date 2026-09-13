@@ -9,9 +9,9 @@ import {
   getThoughts,
   importAll,
   saveCheckin,
-  saveIntention,
   StorageWriteError,
   getAllIntentions,
+  getIntention,
   KEYS,
 } from '../storage.js'
 
@@ -105,7 +105,12 @@ describe('export and import', () => {
       note: 'test',
     })
     addThought('een gedachte')
-    saveIntention('2026-09-14', 'huisarts bellen')
+    saveCheckin('2026-09-14', {
+      mental: 4,
+      body: [{ region: 'lower_back', pain: 2, tension: 5 }],
+      note: 'test',
+      answers: { bereiken: 'huisarts bellen' },
+    })
     const backup = exportAll()
 
     localStorage.clear()
@@ -116,7 +121,7 @@ describe('export and import', () => {
       { region: 'lower_back', pain: 2, tension: 5 },
     ])
     expect(getThoughts()[0].text).toBe('een gedachte')
-    expect(getAllIntentions()['2026-09-14']).toBe('huisarts bellen')
+    expect(getIntention('2026-09-14')).toBe('huisarts bellen')
   })
 
   it('merge never overwrites a NEWER local check-in with an older backup', () => {
@@ -192,11 +197,32 @@ describe('export and import', () => {
   })
 })
 
-describe('intentions', () => {
-  it('saves, trims and clears', () => {
-    saveIntention('2026-09-14', '  bellen  ')
-    expect(getAllIntentions()['2026-09-14']).toBe('bellen')
-    saveIntention('2026-09-14', '')
-    expect(getAllIntentions()['2026-09-14']).toBeUndefined()
+describe('the daily priority (was its own key before v4)', () => {
+  it('is read from the day\'s answers', () => {
+    saveCheckin('2026-09-14', { body: [], answers: { bereiken: '  bellen  ' } })
+    expect(getIntention('2026-09-14')).toBe('bellen')
+    expect(getAllIntentions()).toEqual({ '2026-09-14': 'bellen' })
+  })
+
+  it('is empty for a day that has none', () => {
+    expect(getIntention('2026-09-14')).toBe('')
+  })
+
+  it('still surfaces a priority written by a PRE-v4 build', () => {
+    // What an older Anker left behind: its own key, no check-in entry.
+    localStorage.setItem(
+      KEYS.intentions,
+      JSON.stringify({ '2026-09-12': 'oude prioriteit' }),
+    )
+    expect(getIntention('2026-09-12')).toBe('oude prioriteit')
+  })
+
+  it('never destroys the legacy key, so the move stays reversible', () => {
+    localStorage.setItem(KEYS.intentions, JSON.stringify({ '2026-09-12': 'oud' }))
+    saveCheckin('2026-09-12', { body: [], answers: { bereiken: 'nieuw' } })
+    expect(getIntention('2026-09-12')).toBe('nieuw')
+    expect(JSON.parse(localStorage.getItem(KEYS.intentions))).toEqual({
+      '2026-09-12': 'oud',
+    })
   })
 })

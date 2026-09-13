@@ -16,6 +16,8 @@ describe('migrateCheckin: v1 -> v2', () => {
     }
     expect(migrateCheckin(v1)).toEqual({
       mental: 3,
+      mode: 'lite',
+      answers: {},
       body: [{ region: 'hip_l', pain: 4, tension: 0 }],
       note: 'hoi',
       evening: null,
@@ -23,15 +25,17 @@ describe('migrateCheckin: v1 -> v2', () => {
     })
   })
 
-  it('leaves a v3 entry alone', () => {
-    const v3 = {
+  it('leaves a v4 entry alone', () => {
+    const v4 = {
       mental: 5,
+      mode: 'full',
+      answers: { bereiken: 'huisarts bellen' },
       body: [{ region: 'neck', pain: 1, tension: 5 }],
       note: '',
       evening: null,
       updatedAt: 9,
     }
-    expect(migrateCheckin(v3)).toEqual(v3)
+    expect(migrateCheckin(v4)).toEqual(v4)
   })
 
   it('is safe to run twice', () => {
@@ -85,14 +89,24 @@ describe('migrateCheckin: the evening block (v2 -> v3)', () => {
     expect(migrateCheckin({ mental: 3, body: [], note: '' }).evening).toBeNull()
   })
 
-  it('keeps a filled evening block', () => {
+  it('keeps a filled evening block, defaulting the v4 fields to null', () => {
     const out = migrateCheckin({
       mental: 3,
       body: [],
       note: '',
       evening: { mental: 2, intention: 'partly', note: 'moe', savedAt: 7 },
     })
-    expect(out.evening).toEqual({ mental: 2, intention: 'partly', note: 'moe', savedAt: 7 })
+    expect(out.evening).toEqual({
+      mental: 2,
+      intention: 'partly',
+      pijn: null,
+      focus: null,
+      reactief: null,
+      cafeine: null,
+      eerste: null,
+      note: 'moe',
+      savedAt: 7,
+    })
   })
 
   it('drops an evening block where nothing was answered', () => {
@@ -118,7 +132,12 @@ describe('migrateCheckin: the evening block (v2 -> v3)', () => {
 
   it('upgrades a v2 day (no evening key at all) without losing anything', () => {
     const v2 = { mental: 4, body: [{ region: 'neck', pain: 2, tension: 1 }], note: 'x', updatedAt: 5 }
-    expect(migrateCheckin(v2)).toEqual({ ...v2, evening: null })
+    expect(migrateCheckin(v2)).toEqual({
+      ...v2,
+      mode: 'lite',
+      answers: {},
+      evening: null,
+    })
   })
 })
 
@@ -163,5 +182,117 @@ describe('migrateExport', () => {
 
   it('refuses a backup with no readable version', () => {
     expect(() => migrateExport({ app: 'anker' })).toThrow(/versienummer/)
+  })
+})
+
+
+describe('migrateCheckin: Dagstart questions (v3 -> v4)', () => {
+  it('defaults a day with no mode to lite', () => {
+    expect(migrateCheckin({ body: [] }).mode).toBe('lite')
+  })
+
+  it('rejects a mode outside lite/full rather than storing it', () => {
+    expect(migrateCheckin({ body: [], mode: 'turbo' }).mode).toBe('lite')
+  })
+
+  it('keeps full when that is what was chosen', () => {
+    expect(migrateCheckin({ body: [], mode: 'full' }).mode).toBe('full')
+  })
+
+  it('keeps known answers and trims them', () => {
+    const out = migrateCheckin({
+      body: [],
+      answers: { goed: '  doorgeslapen  ', bereiken: 'huisarts bellen' },
+    })
+    expect(out.answers).toEqual({ goed: 'doorgeslapen', bereiken: 'huisarts bellen' })
+  })
+
+  it('drops blank answers instead of storing empty strings', () => {
+    const out = migrateCheckin({ body: [], answers: { goed: '   ', zin: 'koffie' } })
+    expect(out.answers).toEqual({ zin: 'koffie' })
+  })
+
+  it('drops question ids it does not know', () => {
+    const out = migrateCheckin({ body: [], answers: { verzonnen: 'x', zin: 'y' } })
+    expect(out.answers).toEqual({ zin: 'y' })
+  })
+})
+
+describe('migrateCheckin: the five new evening fields', () => {
+  it('keeps them when answered', () => {
+    const out = migrateCheckin({
+      body: [],
+      evening: {
+        pijn: 2,
+        focus: 4,
+        reactief: 1,
+        cafeine: false,
+        eerste: 'Daglicht',
+        note: '',
+      },
+    })
+    expect(out.evening).toMatchObject({
+      pijn: 2,
+      focus: 4,
+      reactief: 1,
+      cafeine: false,
+      eerste: 'Daglicht',
+    })
+  })
+
+  it('stores an unanswered field as null, never 0 or an empty string', () => {
+    const out = migrateCheckin({ body: [], evening: { pijn: 3 } })
+    expect(out.evening.focus).toBeNull()
+    expect(out.evening.reactief).toBeNull()
+    expect(out.evening.cafeine).toBeNull()
+    expect(out.evening.eerste).toBeNull()
+  })
+
+  it('rejects a first-thing value outside the four options', () => {
+    const out = migrateCheckin({ body: [], evening: { pijn: 1, eerste: 'Schaken' } })
+    expect(out.evening.eerste).toBeNull()
+  })
+
+  it('rejects a non-boolean caffeine answer', () => {
+    const out = migrateCheckin({ body: [], evening: { pijn: 1, cafeine: 'misschien' } })
+    expect(out.evening.cafeine).toBeNull()
+  })
+
+  it('counts an evening with only a new field as a real check-in', () => {
+    expect(migrateCheckin({ body: [], evening: { focus: 4 } }).evening).not.toBeNull()
+  })
+})
+
+describe('migrateCheckins: folding in the legacy intentions key', () => {
+  it('fills answers.bereiken from the legacy map', () => {
+    const out = migrateCheckins(
+      { '2026-09-10': { mental: 3, body: [], note: '' } },
+      { '2026-09-10': 'huisarts bellen' },
+    )
+    expect(out['2026-09-10'].answers.bereiken).toBe('huisarts bellen')
+  })
+
+  it('creates an entry for a day that exists ONLY in the legacy map', () => {
+    const out = migrateCheckins({}, { '2026-09-09': 'alleen legacy' })
+    expect(out['2026-09-09'].answers.bereiken).toBe('alleen legacy')
+    expect(out['2026-09-09'].body).toEqual([])
+  })
+
+  it('lets an existing answer win over the legacy value', () => {
+    const out = migrateCheckins(
+      { '2026-09-10': { body: [], answers: { bereiken: 'nieuw' } } },
+      { '2026-09-10': 'oud' },
+    )
+    expect(out['2026-09-10'].answers.bereiken).toBe('nieuw')
+  })
+
+  it('ignores blank legacy values', () => {
+    const out = migrateCheckins({}, { '2026-09-09': '   ' })
+    expect(out['2026-09-09']).toBeUndefined()
+  })
+
+  it('works with no legacy map at all', () => {
+    const out = migrateCheckins({ '2026-09-10': { body: [] } })
+    expect(out['2026-09-10'].answers).toEqual({})
   })
 })

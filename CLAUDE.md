@@ -32,7 +32,8 @@ none should be added.
   `localStorage`, and everything it returns has already been through
   `migrate.js`, so the rest of the app never sees an old shape. Also:
   `date.js` (all date keys), `regions.js` (the permanent body-region ids),
-  `migrate.js` (schema versions), `streak.js`, `backup.js`, `persist.js`.
+  `questions.js` (the Dagstart questions and evening scales), `migrate.js`
+  (schema versions), `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
@@ -66,6 +67,23 @@ records the wrong side for months. It is covered by tests in
 `modules/checkin/__tests__/bodyShapes.test.js` — keep them passing.
 
 Limbs appear on both views and map to the SAME id: there is only one left arm.
+
+## The Dagstart questions
+
+`lib/questions.js`. The wording is taken VERBATIM from the user's previous app
+(`maurit1994/ds-k9m4x2`) — these are questions they answered for months, and
+rephrasing them quietly changes what gets answered. Do not "improve" them.
+
+Two modes, Lite (3) and Full (6), with Full a strict superset. Lite is the
+default every day and is never remembered: a remembered Full is exactly the
+friction the switch exists to remove. The weekend question appears on Saturday
+and Sunday only, matching the old app's rule.
+
+`bereiken` ("Wat wil ik vandaag écht bereiken?") is special: the evening asks
+whether it was reached and quotes it back. It is also what the Vandaag screen
+shows at the top all day. Before v4 it lived in its own `anker_v1_intentions`
+key; `migrateCheckins` folds that legacy map into `answers.bereiken` on read
+and never deletes it, so the move stays reversible.
 
 ## The PIN
 
