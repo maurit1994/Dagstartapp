@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* App-wide defaults. Anker is a dark, calm, one-thing-at-a-time interface:
+   low contrast noise, large touch targets, no decoration competing for attention. */
+@theme {
+  --color-anker-bg: #0f172a;
+  --color-anker-surface: #1e293b;
+  --color-anker-border: #334155;
+  --color-anker-text: #e2e8f0;
+  --color-anker-muted: #94a3b8;
+  --color-anker-accent: #38bdf8;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-anker-bg);
+  color: var(--color-anker-text);
+  /* Stop iOS Safari from rubber-band scrolling the whole shell. */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
