@@ -34,7 +34,12 @@ none should be added.
   `date.js` (all date keys), `regions.js` (the permanent body-region ids),
   `migrate.js` (schema versions), `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
-- `src/App.jsx` — the only file that knows about all modules; it wires tabs.
+- `src/App.jsx` — the only file that knows about all modules; it wires tabs
+  and gates the app behind the PIN screen when one is set.
+- `.claude/agents/` — epic-writer, tester, reviewer. `.claude/commands/` —
+  `/ship` (supervised) and `/ship-loop` (stages 3-5 cycle, with brakes).
+- `docs/epics/NNN-slug.md` — what to build and how to know it is done.
+  `docs/reports/` — test runs, reviews, loop logs.
 
 ## Conventions
 
@@ -61,6 +66,15 @@ records the wrong side for months. It is covered by tests in
 `modules/checkin/__tests__/bodyShapes.test.js` — keep them passing.
 
 Limbs appear on both views and map to the SAME id: there is only one left arm.
+
+## The PIN
+
+`lib/lock.js` + `modules/lock/`. It is a COURTESY LOCK and the UI must keep
+saying so: the data sits unencrypted in localStorage and anyone who opens
+devtools reads it without seeing the lock screen. The PIN is stored as a
+PBKDF2 hash with a random salt — a 4-digit PIN has only 10,000 values, so a
+bare SHA-256 would be reversed instantly. That protects the PIN, not the data.
+Never describe this feature as encryption anywhere in the app or the docs.
 
 ## Data safety — non-negotiable
 

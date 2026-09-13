@@ -3,11 +3,14 @@ import TabBar from './components/TabBar.jsx'
 import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
+import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
 import History from './modules/history/History.jsx'
 import Settings from './modules/settings/Settings.jsx'
+import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
 import { shouldRemindToExport } from './lib/backup.js'
+import { getMeta } from './lib/storage.js'
 
 // The app shell's three tabs. `id` drives which module renders below;
 // `label` and `icon` are what the user sees (UI language: Dutch).
@@ -28,6 +31,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
   const [showNag, setShowNag] = useState(() => shouldRemindToExport())
+  // Locked only for this page load. There is no session token: closing the app
+  // and reopening asks again, which is the whole point of a courtesy lock.
+  const [lock, setLock] = useState(() => getMeta().lock ?? null)
+  const [isUnlocked, setIsUnlocked] = useState(() => !getMeta().lock)
 
   // Ask iOS to exempt our data from the 7-day cleanup. Fire-and-forget: the
   // answer only affects what the settings screen reports.
@@ -38,6 +45,11 @@ export default function App() {
   function refresh() {
     setDataVersion((v) => v + 1)
     setShowNag(shouldRemindToExport())
+    setLock(getMeta().lock ?? null)
+  }
+
+  if (lock && !isUnlocked) {
+    return <LockScreen lock={lock} onUnlock={() => setIsUnlocked(true)} />
   }
 
   return (
@@ -86,6 +98,7 @@ export default function App() {
               <div key={dataVersion} className="space-y-4">
                 <Intention />
                 <Checkin onSaved={refresh} />
+                <EveningCheckin onSaved={refresh} />
               </div>
             )}
             {activeTab === 'gedachten' && <Thoughts key={dataVersion} />}

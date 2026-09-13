@@ -18,18 +18,20 @@ describe('migrateCheckin: v1 -> v2', () => {
       mental: 3,
       body: [{ region: 'hip_l', pain: 4, tension: 0 }],
       note: 'hoi',
+      evening: null,
       updatedAt: 123,
     })
   })
 
-  it('leaves a v2 entry alone', () => {
-    const v2 = {
+  it('leaves a v3 entry alone', () => {
+    const v3 = {
       mental: 5,
       body: [{ region: 'neck', pain: 1, tension: 5 }],
       note: '',
+      evening: null,
       updatedAt: 9,
     }
-    expect(migrateCheckin(v2)).toEqual(v2)
+    expect(migrateCheckin(v3)).toEqual(v3)
   })
 
   it('is safe to run twice', () => {
@@ -75,6 +77,48 @@ describe('migrateCheckin: hardening', () => {
   it('returns null for something that is not an entry', () => {
     expect(migrateCheckin(null)).toBeNull()
     expect(migrateCheckin('nope')).toBeNull()
+  })
+})
+
+describe('migrateCheckin: the evening block (v2 -> v3)', () => {
+  it('gives a day with no evening an explicit null', () => {
+    expect(migrateCheckin({ mental: 3, body: [], note: '' }).evening).toBeNull()
+  })
+
+  it('keeps a filled evening block', () => {
+    const out = migrateCheckin({
+      mental: 3,
+      body: [],
+      note: '',
+      evening: { mental: 2, intention: 'partly', note: 'moe', savedAt: 7 },
+    })
+    expect(out.evening).toEqual({ mental: 2, intention: 'partly', note: 'moe', savedAt: 7 })
+  })
+
+  it('drops an evening block where nothing was answered', () => {
+    const out = migrateCheckin({
+      body: [],
+      evening: { mental: null, intention: null, note: '' },
+    })
+    expect(out.evening).toBeNull()
+  })
+
+  it('rejects an unknown intention outcome rather than storing it', () => {
+    const out = migrateCheckin({
+      body: [],
+      evening: { mental: 3, intention: 'misschien', note: '' },
+    })
+    expect(out.evening.intention).toBeNull()
+  })
+
+  it('clamps the evening mood the same way as the morning one', () => {
+    const out = migrateCheckin({ body: [], evening: { mental: 42, note: '' } })
+    expect(out.evening.mental).toBe(5)
+  })
+
+  it('upgrades a v2 day (no evening key at all) without losing anything', () => {
+    const v2 = { mental: 4, body: [{ region: 'neck', pain: 2, tension: 1 }], note: 'x', updatedAt: 5 }
+    expect(migrateCheckin(v2)).toEqual({ ...v2, evening: null })
   })
 })
 

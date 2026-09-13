@@ -9,9 +9,16 @@
  * `body: [{region, pain, tension}]`, because a region can now carry two
  * scores. Old entries keep their pain score and get tension 0 — the honest
  * answer, since tension was never asked.
+ *
+ * v2 -> v3: a day gained an optional `evening` block. Purely additive: old
+ * days get `evening: null`, which is exactly true — no evening check-in was
+ * ever recorded for them.
  */
 
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
+
+/** How a day's intention turned out. null means not answered. */
+export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
 
 /** Clamp anything to a whole number in 0-5; nonsense becomes 0. */
 function toScore(value) {
@@ -34,6 +41,7 @@ export function migrateCheckin(entry) {
 
   return {
     mental: entry.mental ?? null,
+    evening: migrateEvening(entry.evening),
     body: body
       .filter((b) => b && typeof b.region === 'string')
       .map((b) => ({
@@ -47,6 +55,29 @@ export function migrateCheckin(entry) {
     note: typeof entry.note === 'string' ? entry.note : '',
     updatedAt: entry.updatedAt ?? Date.now(),
   }
+}
+
+/**
+ * Normalise the optional evening block. Anything unrecognised becomes null
+ * rather than a half-filled object, so "no evening check-in" stays
+ * distinguishable from "an evening check-in with nothing in it".
+ */
+function migrateEvening(evening) {
+  if (!evening || typeof evening !== 'object') return null
+
+  const mental =
+    evening.mental === null || evening.mental === undefined
+      ? null
+      : toScore(evening.mental)
+  const intention = INTENTION_OUTCOMES.includes(evening.intention)
+    ? evening.intention
+    : null
+  const note = typeof evening.note === 'string' ? evening.note : ''
+
+  // An evening block with nothing answered is not a check-in.
+  if (mental === null && intention === null && note === '') return null
+
+  return { mental, intention, note, savedAt: evening.savedAt ?? Date.now() }
 }
 
 /** Bring a whole date-keyed map of check-ins up to the current shape. */

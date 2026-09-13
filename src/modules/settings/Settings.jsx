@@ -13,6 +13,7 @@ import {
   requestPersistentStorage,
 } from '../../lib/persist.js'
 import { exportAll, isStorageAvailable } from '../../lib/storage.js'
+import LockSettings from '../lock/LockSettings.jsx'
 
 /**
  * Backup, restore, and an honest readout of how safe the data currently is.
@@ -169,6 +170,8 @@ export default function Settings({ onDataChanged }) {
           </Button>
         )}
       </Screen>
+
+      <LockSettings onChanged={onDataChanged} />
     </>
   )
 }

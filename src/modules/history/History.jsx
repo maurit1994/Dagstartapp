@@ -83,6 +83,18 @@ function DayCard({ dateKey, entry }) {
           {entry.note}
         </p>
       )}
+
+      {entry.evening && (
+        <p className="mt-2 text-xs text-anker-muted">
+          Avond: {MOOD_SCALE.find((m) => m.value === entry.evening.mental)?.emoji ?? '—'}
+          {entry.evening.intention &&
+            ` · intentie ${
+              { done: 'gelukt', partly: 'deels', missed: 'niet gelukt' }[
+                entry.evening.intention
+              ]
+            }`}
+        </p>
+      )}
     </li>
   )
 }

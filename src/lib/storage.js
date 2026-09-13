@@ -125,6 +125,26 @@ export function saveCheckin(dateKey, entry) {
   return all[dateKey]
 }
 
+/**
+ * Save only the evening block of a day, leaving the morning answers alone.
+ * @param {string} dateKey
+ * @param {{mental: number|null, intention: string|null, note: string}|null} evening
+ */
+export function saveEvening(dateKey, evening) {
+  const all = getAllCheckins()
+  const existing = all[dateKey] ?? { mental: null, body: [], note: '' }
+  all[dateKey] = {
+    ...existing,
+    evening: evening ? { ...evening, savedAt: Date.now() } : null,
+    updatedAt: Date.now(),
+  }
+  // Round-trip through the migrator so the same normalisation applies here as
+  // to anything else that reaches disk.
+  all[dateKey] = { ...migrateCheckin(all[dateKey]), updatedAt: Date.now() }
+  writeJSON(KEYS.checkins, all)
+  return all[dateKey]
+}
+
 /** Remove one day's check-in entirely. */
 export function deleteCheckin(dateKey) {
   const all = getAllCheckins()
