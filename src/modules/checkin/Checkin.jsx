@@ -2,13 +2,13 @@ import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
 import MoodStep from './MoodStep.jsx'
-import PainStep from './PainStep.jsx'
+import BodyStep from './BodyStep.jsx'
 import NoteStep from './NoteStep.jsx'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
 import { getLocalDateKey, formatDateKeyNL } from '../../lib/date.js'
 import { getCheckin, saveCheckin } from '../../lib/storage.js'
 
-const STEPS = ['Gevoel', 'Pijn', 'Notitie']
+const STEPS = ['Gevoel', 'Lichaam', 'Notitie']
 
 /**
  * The daily check-in. One entry per local calendar day; opening a day that
@@ -28,14 +28,14 @@ export default function Checkin({ onSaved }) {
 
   const [step, setStep] = useState(0)
   const [mental, setMental] = useState(() => getCheckin(dateKey)?.mental ?? null)
-  const [pain, setPain] = useState(() => getCheckin(dateKey)?.pain ?? [])
+  const [body, setBody] = useState(() => getCheckin(dateKey)?.body ?? [])
   const [note, setNote] = useState(() => getCheckin(dateKey)?.note ?? '')
   const [error, setError] = useState(null)
 
   function beginEdit() {
     const current = getCheckin(dateKey)
     setMental(current?.mental ?? null)
-    setPain(current?.pain ?? [])
+    setBody(current?.body ?? [])
     setNote(current?.note ?? '')
     setStep(0)
     setError(null)
@@ -44,7 +44,7 @@ export default function Checkin({ onSaved }) {
 
   function handleSave() {
     try {
-      const saved = saveCheckin(dateKey, { mental, pain, note })
+      const saved = saveCheckin(dateKey, { mental, body, note })
       setExisting(saved)
       setIsEditing(false)
       setError(null)
@@ -85,7 +85,7 @@ export default function Checkin({ onSaved }) {
       </div>
 
       {step === 0 && <MoodStep value={mental} onChange={setMental} />}
-      {step === 1 && <PainStep value={pain} onChange={setPain} />}
+      {step === 1 && <BodyStep value={body} onChange={setBody} />}
       {step === 2 && <NoteStep value={note} onChange={setNote} />}
 
       {error && (
@@ -145,15 +145,17 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
       </div>
 
       <div className="mt-4">
-        <p className="text-xs uppercase tracking-wide text-anker-muted">Pijn</p>
-        {entry.pain.length === 0 ? (
-          <p className="mt-1 text-anker-text">Geen pijn genoteerd</p>
+        <p className="text-xs uppercase tracking-wide text-anker-muted">Lichaam</p>
+        {entry.body.length === 0 ? (
+          <p className="mt-1 text-anker-text">Niets genoteerd</p>
         ) : (
           <ul className="mt-1 space-y-1">
-            {entry.pain.map((p) => (
-              <li key={p.region} className="flex justify-between text-anker-text">
-                <span>{getRegionLabel(p.region)}</span>
-                <span className="text-anker-muted">{p.intensity}/5</span>
+            {entry.body.map((b) => (
+              <li key={b.region} className="flex justify-between text-anker-text">
+                <span>{getRegionLabel(b.region)}</span>
+                <span className="text-anker-muted">
+                  pijn {b.pain} · spanning {b.tension}
+                </span>
               </li>
             ))}
           </ul>

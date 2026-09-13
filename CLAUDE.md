@@ -29,8 +29,10 @@ none should be added.
   import from `lib/` and `components/`. A module must never import from
   another module.
 - `src/lib/` — shared logic. `storage.js` is the ONLY file allowed to touch
-  `localStorage`. Also: `date.js` (all date keys), `regions.js` (the permanent
-  body-region ids), `streak.js`, `backup.js` (export/import), `persist.js`.
+  `localStorage`, and everything it returns has already been through
+  `migrate.js`, so the rest of the app never sees an old shape. Also:
+  `date.js` (all date keys), `regions.js` (the permanent body-region ids),
+  `migrate.js` (schema versions), `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs.
 
@@ -40,8 +42,25 @@ none should be added.
 - Date keys ALWAYS derive from LOCAL time. Never `toISOString()` — it converts
   to UTC and silently shifts the day in other timezones (this has bitten us).
 - UI language is Dutch. Code, identifiers and comments are English.
-- Pain is stored as `[{ region, intensity }]` against stable region ids.
-  This shape is a permanent contract; changing it is a migration, not an edit.
+- Body scores are stored as `[{ region, pain, tension }]` against the stable
+  ids in `lib/regions.js`, both 0-5, where 0 means "nothing here". A region
+  scored 0 on both is dropped rather than stored.
+- Region ids may be ADDED but never renamed or removed: stored entries and the
+  body map both reference them.
+- The stored shape is versioned (`CURRENT_SCHEMA_VERSION` in `lib/migrate.js`).
+  Changing it means bumping that version, adding a migration step, and adding a
+  test that an export from the OLD version still imports correctly.
+
+## The body map
+
+`modules/checkin/bodyShapes.js` holds the SVG geometry. Shapes are positioned
+as the VIEWER sees them, so which region id a shape carries depends on the
+view: from the front, the person's left is on the viewer's right; from the
+back, it is on the viewer's left. Get that backwards and the app silently
+records the wrong side for months. It is covered by tests in
+`modules/checkin/__tests__/bodyShapes.test.js` — keep them passing.
+
+Limbs appear on both views and map to the SAME id: there is only one left arm.
 
 ## Data safety — non-negotiable
 

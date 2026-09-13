@@ -8,7 +8,9 @@
  * Contract:
  *  - every key is prefixed `anker_v1_`
  *  - date keys come from lib/date.js (local time, never toISOString)
- *  - pain is stored as [{ region, intensity }] against ids from lib/regions.js
+ *  - body scores are stored as [{ region, pain, tension }] against ids from
+ *    lib/regions.js, and read back through lib/migrate.js so older shapes
+ *    keep working
  *  - nothing here ever leaves the device
  *
  * Failure policy, because this holds health data:
@@ -19,6 +21,12 @@
  */
 
 import { getLocalDateKey } from './date.js'
+import {
+  CURRENT_SCHEMA_VERSION,
+  migrateCheckin,
+  migrateCheckins,
+  migrateExport,
+} from './migrate.js'
 
 export const STORAGE_PREFIX = 'anker_v1_'
 
@@ -88,8 +96,9 @@ function writeJSON(key, value) {
  *   { "2026-09-13": { mental, pain, note, updatedAt }, ... }
  */
 export function getAllCheckins() {
-  const value = readJSON(KEYS.checkins, {})
-  return typeof value === 'object' && !Array.isArray(value) ? value : {}
+  // Everything leaving this function is in the CURRENT shape, whatever shape
+  // it happens to have on disk. The rest of the app never sees an old one.
+  return migrateCheckins(readJSON(KEYS.checkins, {}))
 }
 
 /** One day's check-in, or null if that day has none. */
@@ -105,16 +114,13 @@ export function getTodayCheckin() {
 /**
  * Create or replace one day's check-in.
  * @param {string} dateKey  "YYYY-MM-DD" from lib/date.js
- * @param {{mental: number|null, pain: Array<{region: string, intensity: number}>, note: string}} entry
+ * @param {{mental: number|null, body: Array<{region: string, pain: number, tension: number}>, note: string}} entry
  */
 export function saveCheckin(dateKey, entry) {
   const all = getAllCheckins()
-  all[dateKey] = {
-    mental: entry.mental ?? null,
-    pain: Array.isArray(entry.pain) ? entry.pain : [],
-    note: typeof entry.note === 'string' ? entry.note : '',
-    updatedAt: Date.now(),
-  }
+  // migrateCheckin also normalises and clamps, so a malformed entry cannot
+  // reach disk regardless of which caller built it.
+  all[dateKey] = { ...migrateCheckin(entry), updatedAt: Date.now() }
   writeJSON(KEYS.checkins, all)
   return all[dateKey]
 }
@@ -213,7 +219,7 @@ export function setMeta(patch) {
 export function exportAll() {
   return {
     app: 'anker',
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     exportedAt: Date.now(),
     checkins: getAllCheckins(),
     thoughts: getThoughts(),
@@ -230,18 +236,12 @@ export function exportAll() {
  * @returns {{checkinsAdded: number, thoughtsAdded: number}}
  */
 export function importAll(data, mode = 'merge') {
-  if (!data || data.app !== 'anker') {
-    throw new Error('Dit bestand is geen Anker-backup.')
-  }
-  if (data.schemaVersion !== 1) {
-    throw new Error(
-      `Onbekende backup-versie (${data.schemaVersion}). Deze app leest versie 1.`,
-    )
-  }
+  // Throws on a file that is not an Anker backup or is from a newer app.
+  const upgraded = migrateExport(data)
 
-  const incomingCheckins = data.checkins ?? {}
-  const incomingThoughts = Array.isArray(data.thoughts) ? data.thoughts : []
-  const incomingIntentions = data.intentions ?? {}
+  const incomingCheckins = upgraded.checkins
+  const incomingThoughts = upgraded.thoughts
+  const incomingIntentions = upgraded.intentions
 
   if (mode === 'replace') {
     writeJSON(KEYS.checkins, incomingCheckins)

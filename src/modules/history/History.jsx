@@ -46,8 +46,8 @@ export default function History() {
 
 function DayCard({ dateKey, entry }) {
   const mood = MOOD_SCALE.find((m) => m.value === entry.mental)
-  const worst = entry.pain.reduce(
-    (max, p) => (p.intensity > max ? p.intensity : max),
+  const worst = entry.body.reduce(
+    (max, b) => Math.max(max, b.pain, b.tension),
     0,
   )
 
@@ -58,21 +58,21 @@ function DayCard({ dateKey, entry }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-anker-text">{formatDateKeyNL(dateKey)}</p>
           <p className="text-xs text-anker-muted">
-            {entry.pain.length === 0
-              ? 'geen pijn'
-              : `${entry.pain.length} plek${entry.pain.length === 1 ? '' : 'ken'} · ergste ${worst}/5`}
+            {entry.body.length === 0
+              ? 'niets genoteerd'
+              : `${entry.body.length} plek${entry.body.length === 1 ? '' : 'ken'} · ergste ${worst}/5`}
           </p>
         </div>
       </div>
 
-      {entry.pain.length > 0 && (
+      {entry.body.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1.5">
-          {entry.pain.map((p) => (
+          {entry.body.map((b) => (
             <li
-              key={p.region}
+              key={b.region}
               className="rounded-full border border-anker-border px-2.5 py-0.5 text-xs text-anker-muted"
             >
-              {getRegionLabel(p.region)} {p.intensity}
+              {getRegionLabel(b.region)} · p{b.pain} s{b.tension}
             </li>
           ))}
         </ul>
