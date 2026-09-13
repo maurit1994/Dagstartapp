@@ -76,8 +76,17 @@ rephrasing them quietly changes what gets answered. Do not "improve" them.
 
 Two modes, Lite (3) and Full (6), with Full a strict superset. Lite is the
 default every day and is never remembered: a remembered Full is exactly the
-friction the switch exists to remove. The weekend question appears on Saturday
-and Sunday only, matching the old app's rule.
+friction the switch exists to remove. The weekend question appears on FRIDAY
+only — the old app asked it on Sat/Sun, which asks about a weekend that is
+already happening.
+
+**Render stored answers from `ALL_QUESTION_IDS`, never from
+`questionsForMode`.** Which questions get asked depends on the mode and the
+day, and those rules change; an answer already given must stay visible
+regardless. Rendering from today's rules once made a `weekend` answer stored
+under the old Saturday rule invisible — present on disk, unreachable in the
+UI. Same reasoning as the region ids: what was recorded outlives the rule
+that prompted it.
 
 `bereiken` ("Wat wil ik vandaag écht bereiken?") is special: the evening asks
 whether it was reached and quotes it back. It is also what the Vandaag screen

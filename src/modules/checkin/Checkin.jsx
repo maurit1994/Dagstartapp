@@ -7,7 +7,11 @@ import MoodStep from './MoodStep.jsx'
 import BodyStep from './BodyStep.jsx'
 import NoteStep from './NoteStep.jsx'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
-import { questionsForMode } from '../../lib/questions.js'
+import {
+  ALL_QUESTION_IDS,
+  QUESTIONS,
+  questionsForMode,
+} from '../../lib/questions.js'
 import { getLocalDateKey, formatDateKeyNL } from '../../lib/date.js'
 import { getCheckin, saveCheckin } from '../../lib/storage.js'
 
@@ -157,8 +161,12 @@ export default function Checkin({ onSaved, now = new Date() }) {
 /** What you see once the Dagstart is done: the answers, and a way back in. */
 function CheckinSummary({ entry, dateKey, onEdit }) {
   const mood = MOOD_SCALE.find((m) => m.value === entry.mental)
-  const answered = questionsForMode(entry.mode, new Date(`${dateKey}T12:00:00`))
-    .filter((q) => entry.answers[q.id])
+  // Render from what was ANSWERED, not from what today's rules would ask.
+  // Which questions get asked depends on the mode and the day, and those
+  // rules change — an answer already given must stay visible regardless.
+  const answered = ALL_QUESTION_IDS.filter((id) => entry.answers[id]).map(
+    (id) => QUESTIONS[id],
+  )
 
   return (
     <Screen title="Dagstart ✓">

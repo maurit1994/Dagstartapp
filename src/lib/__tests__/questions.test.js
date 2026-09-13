@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALL_QUESTION_IDS,
   FIRST_THING_VALUES,
-  isWeekend,
+  isWeekendPlanningDay,
   questionsForMode,
   QUESTIONS,
 } from '../questions.js'
@@ -47,28 +48,58 @@ describe('questionsForMode', () => {
 })
 
 describe('the weekend question', () => {
-  it('appears on Saturday and Sunday', () => {
-    expect(ids('lite', SATURDAY)).toContain('weekend')
-    expect(ids('full', SUNDAY)).toContain('weekend')
+  it('appears on Friday, while the weekend is still ahead', () => {
+    expect(ids('lite', FRIDAY)).toContain('weekend')
+    expect(ids('full', FRIDAY)).toContain('weekend')
   })
 
-  it('does not appear on a weekday, including Friday', () => {
+  it('does NOT appear during the weekend itself', () => {
+    // Asking "what am I planning this weekend" on Sunday afternoon is a
+    // question about a weekend that is already over.
+    expect(ids('full', SATURDAY)).not.toContain('weekend')
+    expect(ids('full', SUNDAY)).not.toContain('weekend')
+  })
+
+  it('does not appear on other weekdays', () => {
     expect(ids('full', MONDAY)).not.toContain('weekend')
-    expect(ids('full', FRIDAY)).not.toContain('weekend')
   })
 
   it('comes last, so the regular questions keep their order', () => {
-    const list = ids('full', SATURDAY)
+    const list = ids('full', FRIDAY)
     expect(list[list.length - 1]).toBe('weekend')
   })
 })
 
-describe('isWeekend', () => {
-  it('is Saturday and Sunday only — matching the previous app', () => {
-    expect(isWeekend(SATURDAY)).toBe(true)
-    expect(isWeekend(SUNDAY)).toBe(true)
-    expect(isWeekend(MONDAY)).toBe(false)
-    expect(isWeekend(FRIDAY)).toBe(false)
+describe('isWeekendPlanningDay', () => {
+  it('is Friday only', () => {
+    expect(isWeekendPlanningDay(FRIDAY)).toBe(true)
+    expect(isWeekendPlanningDay(SATURDAY)).toBe(false)
+    expect(isWeekendPlanningDay(SUNDAY)).toBe(false)
+    expect(isWeekendPlanningDay(MONDAY)).toBe(false)
+  })
+})
+
+describe('ALL_QUESTION_IDS — the render order for stored answers', () => {
+  it('contains every question, including ones not asked today', () => {
+    for (const id of Object.keys(QUESTIONS)) expect(ALL_QUESTION_IDS).toContain(id)
+  })
+
+  it('still contains weekend, so an answer given under the OLD Sat/Sun rule\n      stays visible now that it is asked on Friday', () => {
+    expect(ALL_QUESTION_IDS).toContain('weekend')
+  })
+
+  it('is a superset of what any mode or day asks', () => {
+    for (const date of [MONDAY, FRIDAY, SATURDAY, SUNDAY]) {
+      for (const mode of ['lite', 'full']) {
+        for (const id of ids(mode, date)) expect(ALL_QUESTION_IDS).toContain(id)
+      }
+    }
+  })
+
+  it('puts bereiken before the evening-facing questions it feeds', () => {
+    expect(ALL_QUESTION_IDS.indexOf('goed')).toBeLessThan(
+      ALL_QUESTION_IDS.indexOf('bereiken'),
+    )
   })
 })
 

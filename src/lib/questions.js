@@ -45,13 +45,25 @@ export const MODES = ['lite', 'full']
 const LITE_IDS = ['goed', 'bereiken', 'zin']
 const FULL_IDS = ['goed', 'dankbaar', 'bereiken', 'gedragen', 'onrustig', 'zin']
 
-/** Every question id that can be stored, including the weekend one. */
+/**
+ * Every question id that can be stored, in canonical display order.
+ *
+ * Use this — not questionsForMode — to RENDER stored answers. Which questions
+ * get asked depends on the mode and the day, and those rules change; an
+ * answer already given must stay visible regardless.
+ */
 export const ALL_QUESTION_IDS = Object.keys(QUESTIONS)
 
-/** Saturday or Sunday — matching the previous app's rule exactly. */
-export function isWeekend(date = new Date()) {
-  const day = date.getDay()
-  return day === 0 || day === 6
+/**
+ * Friday — the day the weekend question is asked.
+ *
+ * The previous app asked it on Saturday and Sunday, which this app copied at
+ * first. It was wrong: "Wat plan ik dit weekend?" on a Sunday afternoon is a
+ * question about a weekend that is already over. Asked on Friday it is still
+ * a plan.
+ */
+export function isWeekendPlanningDay(date = new Date()) {
+  return date.getDay() === 5
 }
 
 /**
@@ -61,7 +73,7 @@ export function isWeekend(date = new Date()) {
  */
 export function questionsForMode(mode, date = new Date()) {
   const ids = mode === 'full' ? [...FULL_IDS] : [...LITE_IDS]
-  if (isWeekend(date)) ids.push('weekend')
+  if (isWeekendPlanningDay(date)) ids.push('weekend')
   return ids.map((id) => QUESTIONS[id])
 }
 

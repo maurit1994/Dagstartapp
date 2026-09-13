@@ -20,8 +20,9 @@ Question wording is taken verbatim from the old app, not reinvented.
 
 **Morning — Lite (3):** goed, bereiken, zin.
 **Morning — Full (6):** the three above plus dankbaar, gedragen, onrustig.
-**Weekend:** on Saturday and Sunday a seventh question (`weekend`) is inserted
-before the body step, matching the old app's `isWknd` rule exactly.
+**Weekend:** on **Friday** a seventh question (`weekend`) is inserted before
+the body step. The old app asked it on Saturday and Sunday; that was copied
+first and then corrected — see Open questions 1.
 
 The mode switch sits at the top of the flow and can be changed mid-check-in.
 Lite is the default.
@@ -43,8 +44,7 @@ card showing today's priority, which links back into the flow to edit it.
   Both called an external API with a user-supplied key; Anker is local-first
   and stays that way.
 - Speech input/output.
-- Moving the weekend question to Friday. The old app asked it on Sat/Sun; that
-  is preserved. Changing it is a separate decision.
+- Asking the weekend question during the weekend itself. See Open questions 1.
 
 ## Data
 
@@ -96,8 +96,8 @@ place, unread-from-once-migrated — never deleted, so a mistake is recoverable.
 1. Lite shows exactly 3 text questions; Full shows exactly 6, in the old app's
    order.
 2. Switching Lite → Full mid-check-in keeps answers already given.
-3. On Saturday and Sunday the weekend question appears, before the body step;
-   on other days it does not.
+3. On Friday the weekend question appears, before the body step; on every
+   other day, the weekend included, it does not.
 4. Saving, then reloading, shows every answer given.
 5. Blank answers are not stored as empty strings.
 6. The evening card shows all six questions plus a note, and quotes that
@@ -110,12 +110,24 @@ place, unread-from-once-migrated — never deleted, so a mistake is recoverable.
 10. Where both exist, `answers.bereiken` wins over the legacy intentions value.
 11. `mode` values outside lite/full, and `eerste` values outside the four
     options, never reach storage.
+12. An answer to a question that today's rules would NOT ask — a `weekend`
+    answer stored on a Saturday under the old rule — is still shown in that
+    day's summary.
 
 ## Open questions
 
 1. Should the weekend question move to Friday, where "this weekend" is still
-   ahead? **Left as-is** — matching the old app is the safer default; this is
-   the user's call to change.
+   ahead? **Answered: yes, Friday only.** Shipped first matching the old app's
+   Sat/Sun rule, then corrected on the user's call. Asking "what am I planning
+   this weekend" on a Sunday afternoon is a question about a weekend that is
+   already over.
+
+   This surfaced a real bug: the summary rendered answers by asking "which
+   questions would today's rules ask?", so a `weekend` answer given under the
+   old Sat/Sun rule would have gone invisible — still stored, but unreachable
+   in the UI. Summaries now render from what was ANSWERED
+   (`ALL_QUESTION_IDS`), never from what today would ask, so no future change
+   to the question set can hide existing answers.
 2. Should Full mode be remembered as the new default once chosen, or reset to
    Lite each day? **Reset to Lite each day** — a remembered Full is exactly the
    friction the switch exists to remove.
