@@ -4,13 +4,16 @@ import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
 import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
+import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
 import History from './modules/history/History.jsx'
 import Settings from './modules/settings/Settings.jsx'
 import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
 import { shouldRemindToExport } from './lib/backup.js'
-import { getMeta } from './lib/storage.js'
+import { isDagstartDone } from './lib/dagstart.js'
+import { getLocalDateKey } from './lib/date.js'
+import { getCheckin, getMeta } from './lib/storage.js'
 
 // The app shell's three tabs. `id` drives which module renders below;
 // `label` and `icon` are what the user sees (UI language: Dutch).
@@ -99,6 +102,11 @@ export default function App() {
                 <Intention />
                 <Checkin onSaved={refresh} />
                 <EveningCheckin onSaved={refresh} />
+                {/* Below everything, and only once the flow is behind you:
+                    the optional extras must never compete with the routine. */}
+                {isDagstartDone(getCheckin(getLocalDateKey())) && (
+                  <Extras onSaved={refresh} />
+                )}
               </div>
             )}
             {activeTab === 'gedachten' && <Thoughts key={dataVersion} />}

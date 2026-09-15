@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
+import Scale from '../../components/Scale.jsx'
 import { MOOD_SCALE } from '../../lib/regions.js'
+
+const MOOD_WORDS = ['', ...MOOD_SCALE.map((m) => m.label)]
+const MOOD_EMOJI = ['', ...MOOD_SCALE.map((m) => m.emoji)]
 import {
   FIRST_THING_OPTIONS,
   FOCUS_SCALE,
@@ -87,7 +91,7 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
 
   if (!isOpen) {
     return (
-      <Screen title="Avond">
+      <Screen title="Avond" tone="quiet">
         <p>
           {morningDone
             ? `Vanaf ${EVENING_HOUR}:00 vraag ik hoe de dag ging.`
@@ -108,7 +112,8 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
     <Screen title="Hoe ging de dag?">
       <Scale
         label="Focus vandaag"
-        scale={FOCUS_SCALE}
+        words={FOCUS_SCALE}
+        direction="up"
         value={form.focus}
         onSelect={(n) => set('focus', n)}
       />
@@ -143,12 +148,15 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
         </div>
       </div>
 
-      <Scale
-        label="Emotionele reactiviteit"
-        scale={REACTIVITY_SCALE}
-        value={form.reactief}
-        onSelect={(n) => set('reactief', n)}
-      />
+      <div className="mt-5">
+        <Scale
+          label="Emotionele reactiviteit"
+          words={REACTIVITY_SCALE}
+          direction="down"
+          value={form.reactief}
+          onSelect={(n) => set('reactief', n)}
+        />
+      </div>
 
       <div className="mt-5">
         <p className="text-sm text-anker-muted">Cafeïne na 14:00?</p>
@@ -198,25 +206,14 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
       </div>
 
       <div className="mt-5">
-        <p className="text-sm text-anker-muted">Hoe eindig je de dag?</p>
-        <div className="mt-2 flex justify-between gap-1">
-          {MOOD_SCALE.map((mood) => (
-            <button
-              key={mood.value}
-              type="button"
-              onClick={() => set('mental', mood.value)}
-              aria-pressed={form.mental === mood.value}
-              aria-label={`Avond: ${mood.label}`}
-              className={`flex min-h-16 flex-1 items-center justify-center rounded-xl border transition ${
-                form.mental === mood.value
-                  ? 'border-anker-accent bg-anker-accent/10'
-                  : 'border-anker-border bg-anker-bg'
-              }`}
-            >
-              <span className="text-2xl leading-none">{mood.emoji}</span>
-            </button>
-          ))}
-        </div>
+        <Scale
+          label="Hoe eindig je de dag?"
+          words={MOOD_WORDS}
+          emoji={MOOD_EMOJI}
+          direction="up"
+          value={form.mental}
+          onSelect={(n) => set('mental', n)}
+        />
       </div>
 
       <textarea
@@ -242,34 +239,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
         Dag afsluiten
       </Button>
     </Screen>
-  )
-}
-
-/** A labelled 1-5 row where each button carries the scale's own word. */
-function Scale({ label, scale, value, onSelect }) {
-  return (
-    <div className="mt-5 first:mt-0">
-      <p className="text-sm text-anker-muted">{label}</p>
-      <div className="mt-2 flex gap-1.5">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onSelect(n)}
-            aria-pressed={value === n}
-            aria-label={`${label}: ${scale[n]}`}
-            className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border text-sm transition ${
-              value === n
-                ? 'border-anker-accent bg-anker-accent/20 text-anker-text'
-                : 'border-anker-border bg-anker-bg text-anker-muted'
-            }`}
-          >
-            <span>{n}</span>
-            <span className="text-[9px] leading-tight opacity-80">{scale[n]}</span>
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }
 

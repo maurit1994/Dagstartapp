@@ -34,7 +34,8 @@ none should be added.
   `date.js` (all date keys), `regions.js` (the permanent body-region ids),
   `questions.js` (the Dagstart questions and the sleep/evening scales),
   `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
-  `migrate.js` (schema versions), `streak.js`, `backup.js`, `persist.js`.
+  `scales.js` (the 1-5 colour ramp), `migrate.js` (schema versions),
+  `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
@@ -136,6 +137,40 @@ The evening deliberately does NOT ask "Pijn nu". The body map already records
 pain per region with tension beside it; a second single-number pain question
 put the same thing on screen twice, at lower fidelity. The field stays in the
 schema and old answers still render — only the question is gone.
+
+## Colour has exactly three jobs
+
+Defined in `src/index.css`. Keep them apart — the moment colour becomes
+decoration it stops carrying information.
+
+1. **`accent` marks what to do next**, and nothing else: the primary button,
+   the current step, the active tab. One accent element per screen. Never use
+   it to make something look nice.
+2. **The 1-5 scales colour themselves from their VALUE** via `lib/scales.js` —
+   one ramp walked up (mood, sleep, focus: 5 is green) or down (pain, tension,
+   reactivity: 5 is red). Carried over from the previous app. Anker briefly
+   painted every selected button the same accent blue, which looks tidy and
+   tells you nothing at a glance.
+3. **`done` marks something finished** and needing nothing from you.
+
+Saturation stays low. This is opened on bad mornings; it must not shout.
+
+`components/Scale.jsx` is the ONE 1-5 scale. There were four near-identical
+copies before, which is how they drifted apart in height and wording.
+
+`Screen`'s `tone="quiet"` is the other half of the hierarchy: on a screen with
+several cards exactly one should be asking for you, and the rest recede.
+
+## Keep the daily flow short
+
+The Dagstart is the routine, and a routine you stop starting records nothing.
+Anything optional belongs in `modules/checkin/Extras.jsx` — a folded card
+BELOW the flow, shown only once the Dagstart is done. The Garmin readings and
+the free note live there: both are worth having, neither is worth a step.
+
+Extras writes into the same day entry, so it passes through whatever the flow
+already stored; likewise Checkin passes the stored `note` through untouched.
+Neither may clobber the other's fields.
 
 ## The PIN
 

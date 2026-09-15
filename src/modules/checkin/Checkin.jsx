@@ -6,7 +6,6 @@ import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
 import SleepStep from './SleepStep.jsx'
 import BodyStep from './BodyStep.jsx'
-import NoteStep from './NoteStep.jsx'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
 import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
 import { formatSleepDuration } from '../../lib/sleep.js'
@@ -42,12 +41,14 @@ export default function Checkin({ onSaved, now = new Date() }) {
   const [mental, setMental] = useState(() => stored?.mental ?? null)
   const [sleep, setSleep] = useState(() => stored?.sleep ?? null)
   const [body, setBody] = useState(() => stored?.body ?? [])
-  const [note, setNote] = useState(() => stored?.note ?? '')
   const [error, setError] = useState(null)
 
   const questions = questionsForMode(mode, now)
-  // The written questions come first, then mood, sleep, body and note.
-  const stepCount = questions.length + 4
+  // The written questions come first, then mood, sleep and the body map. The
+  // free note and the Garmin readings deliberately are NOT steps — they live
+  // in Extras, below the flow, so the daily routine stays short enough to
+  // actually be done.
+  const stepCount = questions.length + 3
   const lastStep = stepCount - 1
 
   function beginEdit() {
@@ -57,7 +58,6 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setMental(current?.mental ?? null)
     setSleep(current?.sleep ?? null)
     setBody(current?.body ?? [])
-    setNote(current?.note ?? '')
     setStep(0)
     setError(null)
     setIsEditing(true)
@@ -67,12 +67,21 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setMode(next)
     // Switching length must never lose what is already written, and must never
     // strand you on a step that no longer exists.
-    setStep((current) => Math.min(current, questionsForMode(next, now).length + 3))
+    setStep((current) => Math.min(current, questionsForMode(next, now).length + 2))
   }
 
   function handleSave() {
     try {
-      const saved = saveCheckin(dateKey, { mental, mode, answers, sleep, body, note })
+      // `note` is owned by Extras; pass through whatever is already stored so
+      // saving the Dagstart never wipes a note written there.
+      const saved = saveCheckin(dateKey, {
+        mental,
+        mode,
+        answers,
+        sleep,
+        body,
+        note: getCheckin(dateKey)?.note ?? '',
+      })
       setExisting(saved)
       setIsEditing(false)
       setError(null)
@@ -92,6 +101,13 @@ export default function Checkin({ onSaved, now = new Date() }) {
   }
 
   const questionStep = step < questions.length ? questions[step] : null
+  const stepLabel = questionStep
+    ? `Vraag ${step + 1}`
+    : step === questions.length
+      ? 'Gevoel'
+      : step === questions.length + 1
+        ? 'Slaap'
+        : 'Lichaam'
 
   return (
     <Screen title="Dagstart">
@@ -99,19 +115,25 @@ export default function Checkin({ onSaved, now = new Date() }) {
           the mood, body and note steps, and it costs room the body map needs. */}
       {step < questions.length && <ModeSwitch mode={mode} onChange={changeMode} />}
 
+      {/* Thick enough to read at a glance, and it names where you are — a
+          bare "4 / 7" tells you how much is left but not what you are doing. */}
       <div className="mb-5 mt-4">
         <div className="flex gap-1" aria-hidden="true">
           {Array.from({ length: stepCount }, (_, index) => (
             <div
               key={index}
-              className={`h-1 flex-1 rounded-full ${
-                index <= step ? 'bg-anker-accent' : 'bg-anker-border'
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                index < step
+                  ? 'bg-anker-done'
+                  : index === step
+                    ? 'bg-anker-accent'
+                    : 'bg-anker-border'
               }`}
             />
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-anker-muted">
-          Stap {step + 1} van {stepCount}
+        <p className="mt-2 text-xs text-anker-muted">
+          {stepLabel} · {step + 1} van {stepCount}
         </p>
       </div>
 
@@ -128,10 +150,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
       {step === questions.length + 1 && (
         <SleepStep value={sleep} onChange={setSleep} />
       )}
-      {step === questions.length + 2 && (
-        <BodyStep value={body} onChange={setBody} />
-      )}
-      {step === lastStep && <NoteStep value={note} onChange={setNote} />}
+      {step === lastStep && <BodyStep value={body} onChange={setBody} />}
 
       {error && (
         <p
@@ -225,13 +244,6 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
           </ul>
         )}
       </div>
-
-      {entry.note && (
-        <div className="mt-4">
-          <p className="text-xs uppercase tracking-wide text-anker-muted">Notitie</p>
-          <p className="mt-1 whitespace-pre-wrap text-anker-text">{entry.note}</p>
-        </div>
-      )}
 
       <Button
         variant="secondary"

@@ -1,18 +1,21 @@
 /**
- * Shared button. `variant` picks the look; everything else (onClick, type,
- * disabled, aria-*) is forwarded straight through to the real <button>.
+ * Shared button.
  *
- * min-h-12 keeps every button comfortably above Apple's ~44px minimum touch
- * target — this app is used one-handed, often in a hurry.
+ * `primary` is the only element on a screen allowed to carry the accent at
+ * full strength: it is how you find "what do I do next" without reading. One
+ * per screen, always.
+ *
+ * min-h-14 for primary, min-h-12 otherwise — comfortably past Apple's ~44px
+ * minimum, because this app is used one-handed and often in a hurry.
  */
 const VARIANTS = {
   primary:
-    'bg-anker-accent text-slate-900 font-semibold hover:brightness-110 disabled:opacity-40',
+    'min-h-14 bg-anker-accent text-anker-accent-ink text-base font-semibold hover:brightness-110 disabled:opacity-40',
   secondary:
-    'bg-anker-surface text-anker-text border border-anker-border hover:border-anker-accent disabled:opacity-40',
-  ghost: 'text-anker-muted hover:text-anker-text disabled:opacity-40',
+    'min-h-12 bg-anker-raised text-anker-text border border-anker-border hover:border-anker-accent disabled:opacity-40',
+  ghost: 'min-h-12 text-anker-muted hover:text-anker-text disabled:opacity-40',
   danger:
-    'bg-transparent text-red-300 border border-red-400/40 hover:bg-red-500/10 disabled:opacity-40',
+    'min-h-12 bg-transparent text-red-300 border border-red-400/40 hover:bg-red-500/10 disabled:opacity-40',
 }
 
 export default function Button({
@@ -23,7 +26,7 @@ export default function Button({
 }) {
   return (
     <button
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm transition disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-xl px-4 text-sm transition disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
       {...rest}
     >
       {children}
