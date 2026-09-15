@@ -17,6 +17,7 @@ export function isDagstartDone(entry) {
     // undefined !== null is true, which would call an empty object done.
     typeof entry.mental === 'number' ||
     Object.keys(entry.answers ?? {}).length > 0 ||
+    entry.sleep !== null && entry.sleep !== undefined ||
     (entry.body ?? []).length > 0 ||
     (entry.note ?? '').trim() !== ''
   )

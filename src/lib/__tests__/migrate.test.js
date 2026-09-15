@@ -18,6 +18,7 @@ describe('migrateCheckin: v1 -> v2', () => {
       mental: 3,
       mode: 'lite',
       answers: {},
+      sleep: null,
       body: [{ region: 'hip_l', pain: 4, tension: 0 }],
       note: 'hoi',
       evening: null,
@@ -25,11 +26,12 @@ describe('migrateCheckin: v1 -> v2', () => {
     })
   })
 
-  it('leaves a v4 entry alone', () => {
+  it('leaves a v5 entry alone', () => {
     const v4 = {
       mental: 5,
       mode: 'full',
       answers: { bereiken: 'huisarts bellen' },
+      sleep: null,
       body: [{ region: 'neck', pain: 1, tension: 5 }],
       note: '',
       evening: null,
@@ -136,6 +138,7 @@ describe('migrateCheckin: the evening block (v2 -> v3)', () => {
       ...v2,
       mode: 'lite',
       answers: {},
+      sleep: null,
       evening: null,
     })
   })
@@ -294,5 +297,93 @@ describe('migrateCheckins: folding in the legacy intentions key', () => {
   it('works with no legacy map at all', () => {
     const out = migrateCheckins({ '2026-09-10': { body: [] } })
     expect(out['2026-09-10'].answers).toEqual({})
+  })
+})
+
+
+describe('migrateCheckin: the sleep block (v4 -> v5)', () => {
+  it('gives a day with no sleep an explicit null', () => {
+    expect(migrateCheckin({ body: [] }).sleep).toBeNull()
+  })
+
+  it('drops a sleep block where nothing was answered', () => {
+    expect(
+      migrateCheckin({ body: [], sleep: { subjectief: null, notitie: '' } }).sleep,
+    ).toBeNull()
+  })
+
+  it('keeps a full night, padding the hour to two digits', () => {
+    const out = migrateCheckin({
+      body: [],
+      sleep: {
+        subjectief: 4,
+        bedtijd: '23:30',
+        wakkertijd: '7:15',
+        notitie: 'onrustig',
+        garmin: { gedragen: true, bodyBattery: 62, slaapscore: 71, hrvStatus: 'Goed' },
+      },
+    })
+    expect(out.sleep).toEqual({
+      subjectief: 4,
+      bedtijd: '23:30',
+      wakkertijd: '07:15',
+      notitie: 'onrustig',
+      garmin: { gedragen: true, bodyBattery: 62, slaapscore: 71, hrvStatus: 'Goed' },
+    })
+  })
+
+  it('rejects an unusable time rather than storing it', () => {
+    const out = migrateCheckin({
+      body: [],
+      sleep: { subjectief: 3, bedtijd: '25:00', wakkertijd: 'halfacht' },
+    })
+    expect(out.sleep.bedtijd).toBeNull()
+    expect(out.sleep.wakkertijd).toBeNull()
+  })
+
+  it('clamps Garmin readings into 0-100', () => {
+    const out = migrateCheckin({
+      body: [],
+      sleep: { garmin: { gedragen: true, bodyBattery: 150, slaapscore: -4 } },
+    })
+    expect(out.sleep.garmin.bodyBattery).toBe(100)
+    expect(out.sleep.garmin.slaapscore).toBe(0)
+  })
+
+  it('rejects an HRV status outside the three the watch reports', () => {
+    const out = migrateCheckin({
+      body: [],
+      sleep: { garmin: { gedragen: true, hrvStatus: 'Uitstekend' } },
+    })
+    expect(out.sleep.garmin.hrvStatus).toBeNull()
+  })
+
+  it('discards readings when the watch was NOT worn', () => {
+    // A Body Battery from a watch left on the nightstand is not a reading.
+    const out = migrateCheckin({
+      body: [],
+      sleep: { garmin: { gedragen: false, bodyBattery: 88, hrvStatus: 'Goed' } },
+    })
+    expect(out.sleep.garmin).toEqual({
+      gedragen: false,
+      bodyBattery: null,
+      slaapscore: null,
+      hrvStatus: null,
+    })
+  })
+
+  it('keeps a sleep block that only says the watch was not worn', () => {
+    // "I did not wear it" is an answer, and differs from never being asked.
+    expect(
+      migrateCheckin({ body: [], sleep: { garmin: { gedragen: false } } }).sleep,
+    ).not.toBeNull()
+  })
+
+  it('is safe to run twice', () => {
+    const once = migrateCheckin({
+      body: [],
+      sleep: { subjectief: 3, bedtijd: '1:05', garmin: { gedragen: true, slaapscore: 80 } },
+    })
+    expect(migrateCheckin(once).sleep).toEqual(once.sleep)
   })
 })

@@ -77,6 +77,15 @@ export function questionsForMode(mode, date = new Date()) {
   return ids.map((id) => QUESTIONS[id])
 }
 
+/* -------------------------------------------------------------------- sleep */
+
+/** How the night felt. Index 0 unused so the value equals the scale position. */
+export const SLEEP_SCALE = ['', 'Slecht', 'Matig', 'Oké', 'Goed', 'Uitstekend']
+export const SLEEP_EMOJI = ['', '😴', '😕', '😐', '🙂', '😊']
+
+/** Garmin's own HRV verdict, transcribed by hand from the watch. */
+export const HRV_STATUSES = ['Goed', 'Matig', 'Slecht']
+
 /* ------------------------------------------------------------------ evening */
 
 /** Pain right now. Index 0 is unused so the value equals the scale position. */

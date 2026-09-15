@@ -22,14 +22,19 @@
  * date present only in the legacy map gets an entry created so nothing
  * written before this change becomes unreachable. The legacy key is never
  * deleted, so the move stays recoverable.
+ *
+ * v4 -> v5: a day gained an optional `sleep` block — how the night felt, bed
+ * and wake times, a note, and the Garmin readings transcribed from the watch.
+ * Purely additive: old days get `sleep: null`, which is true of them.
  */
 
-export const CURRENT_SCHEMA_VERSION = 4
+export const CURRENT_SCHEMA_VERSION = 5
 
 /** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
 
 const MODES = ['lite', 'full']
+const HRV_STATUSES = ['Goed', 'Matig', 'Slecht']
 const FIRST_THING_VALUES = ['Telefoon', 'Daglicht', 'Bewegen', 'Anders']
 const QUESTION_IDS = [
   'goed',
@@ -81,6 +86,7 @@ export function migrateCheckin(entry) {
     mental: entry.mental ?? null,
     mode: MODES.includes(entry.mode) ? entry.mode : 'lite',
     answers: cleanAnswers(entry.answers),
+    sleep: migrateSleep(entry.sleep),
     evening: migrateEvening(entry.evening),
     body: body
       .filter((b) => b && typeof b.region === 'string')
@@ -95,6 +101,62 @@ export function migrateCheckin(entry) {
     note: typeof entry.note === 'string' ? entry.note : '',
     updatedAt: entry.updatedAt ?? Date.now(),
   }
+}
+
+/** "HH:MM" or null. Anything unparseable becomes null rather than reaching disk. */
+function toTimeOrNull(value) {
+  if (typeof value !== 'string') return null
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+  return `${String(hours).padStart(2, '0')}:${match[2]}`
+}
+
+/** A 0-100 reading from the watch, or null. */
+function toHundredOrNull(value) {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  if (!Number.isFinite(n)) return null
+  return Math.min(100, Math.max(0, Math.round(n)))
+}
+
+/**
+ * Normalise the optional sleep block.
+ *
+ * `garmin.gedragen === false` is a real answer — "I did not wear it" is worth
+ * recording, and is not the same as never having been asked. So a sleep block
+ * holding only that is kept, while one holding nothing at all becomes null.
+ */
+function migrateSleep(sleep) {
+  if (!sleep || typeof sleep !== 'object') return null
+
+  const subjectief = toScoreOrNull(sleep.subjectief)
+  const bedtijd = toTimeOrNull(sleep.bedtijd)
+  const wakkertijd = toTimeOrNull(sleep.wakkertijd)
+  const notitie = typeof sleep.notitie === 'string' ? sleep.notitie : ''
+
+  const incoming = sleep.garmin && typeof sleep.garmin === 'object' ? sleep.garmin : {}
+  const gedragen = typeof incoming.gedragen === 'boolean' ? incoming.gedragen : null
+  // Readings only mean anything if the watch was actually worn.
+  const worn = gedragen === true
+  const garmin = {
+    gedragen,
+    bodyBattery: worn ? toHundredOrNull(incoming.bodyBattery) : null,
+    slaapscore: worn ? toHundredOrNull(incoming.slaapscore) : null,
+    hrvStatus: worn && HRV_STATUSES.includes(incoming.hrvStatus) ? incoming.hrvStatus : null,
+  }
+
+  const answeredSomething =
+    subjectief !== null ||
+    bedtijd !== null ||
+    wakkertijd !== null ||
+    notitie !== '' ||
+    gedragen !== null
+  if (!answeredSomething) return null
+
+  return { subjectief, bedtijd, wakkertijd, notitie, garmin }
 }
 
 /**

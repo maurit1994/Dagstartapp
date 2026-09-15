@@ -32,8 +32,9 @@ none should be added.
   `localStorage`, and everything it returns has already been through
   `migrate.js`, so the rest of the app never sees an old shape. Also:
   `date.js` (all date keys), `regions.js` (the permanent body-region ids),
-  `questions.js` (the Dagstart questions and evening scales), `migrate.js`
-  (schema versions), `streak.js`, `backup.js`, `persist.js`.
+  `questions.js` (the Dagstart questions and the sleep/evening scales),
+  `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
+  `migrate.js` (schema versions), `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
@@ -99,6 +100,25 @@ whether it was reached and quotes it back. It is also what the Vandaag screen
 shows at the top all day. Before v4 it lived in its own `anker_v1_intentions`
 key; `migrateCheckins` folds that legacy map into `answers.bereiken` on read
 and never deletes it, so the move stays reversible.
+
+## Sleep
+
+Its own step in the Dagstart, between mood and the body map — not bolted onto
+the body screen as the old app had it, because that screen only just fits a
+phone.
+
+Times are plain "HH:MM" strings with no date attached, and `lib/sleep.js` is
+the only place that turns them into a duration. A wake time at or before the
+bedtime means the next morning; 23:30 to 07:15 is 7h45m, not minus sixteen
+hours. It deliberately does not go through Date — there is no calendar day
+here, and dragging one in drags daylight saving in with it.
+
+Garmin readings (Body Battery, Slaapscore, HRV Status) are transcribed by hand
+from the watch, so they are clamped to 0-100 and the HRV status is checked
+against the three values the watch actually reports. When `gedragen` is false
+the readings are discarded: a Body Battery from a watch left on the nightstand
+is not a reading. `gedragen: false` is itself a real answer and keeps the
+sleep block alive — it differs from never having been asked.
 
 ## One thing at a time on Vandaag
 

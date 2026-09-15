@@ -4,9 +4,12 @@ import Button from '../../components/Button.jsx'
 import ModeSwitch from './ModeSwitch.jsx'
 import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
+import SleepStep from './SleepStep.jsx'
 import BodyStep from './BodyStep.jsx'
 import NoteStep from './NoteStep.jsx'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
+import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
+import { formatSleepDuration } from '../../lib/sleep.js'
 import {
   ALL_QUESTION_IDS,
   QUESTIONS,
@@ -37,13 +40,14 @@ export default function Checkin({ onSaved, now = new Date() }) {
   const [answers, setAnswers] = useState(() => stored?.answers ?? {})
   const [step, setStep] = useState(0)
   const [mental, setMental] = useState(() => stored?.mental ?? null)
+  const [sleep, setSleep] = useState(() => stored?.sleep ?? null)
   const [body, setBody] = useState(() => stored?.body ?? [])
   const [note, setNote] = useState(() => stored?.note ?? '')
   const [error, setError] = useState(null)
 
   const questions = questionsForMode(mode, now)
-  // The written questions come first, then mood, body and note.
-  const stepCount = questions.length + 3
+  // The written questions come first, then mood, sleep, body and note.
+  const stepCount = questions.length + 4
   const lastStep = stepCount - 1
 
   function beginEdit() {
@@ -51,6 +55,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setMode(current?.mode ?? 'lite')
     setAnswers(current?.answers ?? {})
     setMental(current?.mental ?? null)
+    setSleep(current?.sleep ?? null)
     setBody(current?.body ?? [])
     setNote(current?.note ?? '')
     setStep(0)
@@ -62,12 +67,12 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setMode(next)
     // Switching length must never lose what is already written, and must never
     // strand you on a step that no longer exists.
-    setStep((current) => Math.min(current, questionsForMode(next, now).length + 2))
+    setStep((current) => Math.min(current, questionsForMode(next, now).length + 3))
   }
 
   function handleSave() {
     try {
-      const saved = saveCheckin(dateKey, { mental, mode, answers, body, note })
+      const saved = saveCheckin(dateKey, { mental, mode, answers, sleep, body, note })
       setExisting(saved)
       setIsEditing(false)
       setError(null)
@@ -121,6 +126,9 @@ export default function Checkin({ onSaved, now = new Date() }) {
       )}
       {step === questions.length && <MoodStep value={mental} onChange={setMental} />}
       {step === questions.length + 1 && (
+        <SleepStep value={sleep} onChange={setSleep} />
+      )}
+      {step === questions.length + 2 && (
         <BodyStep value={body} onChange={setBody} />
       )}
       {step === lastStep && <NoteStep value={note} onChange={setNote} />}
@@ -198,6 +206,8 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
         <span className="text-anker-text">{mood?.label ?? 'Niet ingevuld'}</span>
       </div>
 
+      {entry.sleep && <SleepSummary sleep={entry.sleep} />}
+
       <div className="mt-4">
         <p className="text-xs uppercase tracking-wide text-anker-muted">Lichaam</p>
         {entry.body.length === 0 ? (
@@ -232,5 +242,47 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
         Aanpassen
       </Button>
     </Screen>
+  )
+}
+
+/** Last night, as recorded. Only the parts that were actually answered. */
+function SleepSummary({ sleep }) {
+  const duration = formatSleepDuration(sleep.bedtijd, sleep.wakkertijd)
+  const garmin = sleep.garmin ?? {}
+
+  const rows = [
+    ['In bed', sleep.bedtijd && sleep.wakkertijd
+      ? `${sleep.bedtijd} → ${sleep.wakkertijd}${duration ? ` (${duration})` : ''}`
+      : null],
+    ['Body Battery', garmin.bodyBattery],
+    ['Slaapscore', garmin.slaapscore],
+    ['HRV', garmin.hrvStatus],
+  ].filter(([, value]) => value !== null && value !== undefined)
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs uppercase tracking-wide text-anker-muted">Slaap</p>
+      {sleep.subjectief && (
+        <p className="mt-1 text-anker-text">
+          {SLEEP_EMOJI[sleep.subjectief]} {SLEEP_SCALE[sleep.subjectief]}
+        </p>
+      )}
+      {rows.length > 0 && (
+        <dl className="mt-1 space-y-0.5">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex justify-between">
+              <dt className="text-anker-muted">{label}</dt>
+              <dd className="text-anker-text">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {garmin.gedragen === false && (
+        <p className="mt-1 text-sm text-anker-muted">Garmin niet gedragen</p>
+      )}
+      {sleep.notitie && (
+        <p className="mt-1 whitespace-pre-wrap text-anker-text">{sleep.notitie}</p>
+      )}
+    </div>
   )
 }

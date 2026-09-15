@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isDagstartDone } from '../dagstart.js'
 
-const empty = { mental: null, answers: {}, body: [], note: '', evening: null }
+const empty = { mental: null, answers: {}, sleep: null, body: [], note: '', evening: null }
 
 describe('isDagstartDone', () => {
   it('is false for a day with no entry at all', () => {
@@ -18,6 +18,7 @@ describe('isDagstartDone', () => {
     expect(isDagstartDone({ ...empty, answers: { zin: 'koffie' } })).toBe(true)
     expect(isDagstartDone({ ...empty, body: [{ region: 'neck', pain: 1, tension: 0 }] })).toBe(true)
     expect(isDagstartDone({ ...empty, note: 'iets' })).toBe(true)
+    expect(isDagstartDone({ ...empty, sleep: { subjectief: 4 } })).toBe(true)
   })
 
   it('ignores a note that is only whitespace', () => {
