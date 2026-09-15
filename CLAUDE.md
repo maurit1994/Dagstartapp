@@ -182,13 +182,24 @@ several cards exactly one should be asking for you, and the rest recede.
 ## Keep the daily flow short
 
 The Dagstart is the routine, and a routine you stop starting records nothing.
-Anything optional belongs in `modules/checkin/Extras.jsx` — a folded card
-BELOW the flow, shown only once the Dagstart is done. The Garmin readings and
-the free note live there: both are worth having, neither is worth a step.
+It holds the written questions, mood and sleep — and nothing else.
 
-Extras writes into the same day entry, so it passes through whatever the flow
-already stored; likewise Checkin passes the stored `note` through untouched.
-Neither may clobber the other's fields.
+Three things sit on their own cards BELOW it instead, each writing into the
+same day entry:
+
+- **`BodyCard.jsx` (the body map).** Out of the morning sequence on purpose:
+  opening the day by scanning yourself for pain makes the pain louder, and it
+  is a poor thing to have to do before anything good has happened yet. One tap
+  away, all day, for when the body actually asks.
+- **`Extras.jsx`** — the Garmin readings and the free note. Worth having,
+  not worth a step.
+- **`EveningCheckin.jsx`** — gated on the clock AND `isDagstartDone`.
+
+Every one of these writes the SAME day entry, so each must pass the others'
+fields through untouched. Checkin passes `body` and `note`; BodyCard and
+Extras spread the stored entry before overwriting only their own field. Get
+this wrong and saving one silently wipes another — covered by end-to-end
+tests that save from each and assert the rest survived.
 
 ## The PIN
 

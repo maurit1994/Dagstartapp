@@ -5,8 +5,7 @@ import ModeSwitch from './ModeSwitch.jsx'
 import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
 import SleepStep from './SleepStep.jsx'
-import BodyStep from './BodyStep.jsx'
-import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
+import { MOOD_SCALE } from '../../lib/regions.js'
 import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
 import { formatSleepDuration } from '../../lib/sleep.js'
 import {
@@ -19,7 +18,13 @@ import { isDagstartDone } from '../../lib/dagstart.js'
 import { getCheckin, saveCheckin } from '../../lib/storage.js'
 
 /**
- * The Dagstart: the written questions, then mood, body and an optional note.
+ * The Dagstart: the written questions, then mood and sleep.
+ *
+ * The body map is deliberately NOT here. Opening the day by scanning yourself
+ * for pain makes the pain louder, and it is a poor thing to have to do before
+ * anything good has happened yet — it lives on its own card below, available
+ * all day. Garmin and the free note are in Extras for the same reason: a
+ * routine you stop starting records nothing.
  *
  * One entry per local calendar day; opening a day that already has one shows
  * a summary, and "Aanpassen" reopens the flow with the stored answers filled
@@ -40,15 +45,13 @@ export default function Checkin({ onSaved, now = new Date() }) {
   const [step, setStep] = useState(0)
   const [mental, setMental] = useState(() => stored?.mental ?? null)
   const [sleep, setSleep] = useState(() => stored?.sleep ?? null)
-  const [body, setBody] = useState(() => stored?.body ?? [])
   const [error, setError] = useState(null)
 
   const questions = questionsForMode(mode, now)
-  // The written questions come first, then mood, sleep and the body map. The
-  // free note and the Garmin readings deliberately are NOT steps — they live
-  // in Extras, below the flow, so the daily routine stays short enough to
-  // actually be done.
-  const stepCount = questions.length + 3
+  // The written questions, then mood, then sleep. Nothing else: everything
+  // optional or unpleasant lives on its own card below, so the daily routine
+  // stays short enough to actually be done.
+  const stepCount = questions.length + 2
   const lastStep = stepCount - 1
 
   function beginEdit() {
@@ -57,7 +60,6 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setAnswers(current?.answers ?? {})
     setMental(current?.mental ?? null)
     setSleep(current?.sleep ?? null)
-    setBody(current?.body ?? [])
     setStep(0)
     setError(null)
     setIsEditing(true)
@@ -67,20 +69,22 @@ export default function Checkin({ onSaved, now = new Date() }) {
     setMode(next)
     // Switching length must never lose what is already written, and must never
     // strand you on a step that no longer exists.
-    setStep((current) => Math.min(current, questionsForMode(next, now).length + 2))
+    setStep((current) => Math.min(current, questionsForMode(next, now).length + 1))
   }
 
   function handleSave() {
     try {
-      // `note` is owned by Extras; pass through whatever is already stored so
-      // saving the Dagstart never wipes a note written there.
+      // `body` belongs to BodyCard and `note` to Extras; pass both through
+      // untouched so saving the Dagstart can never wipe what was entered
+      // there.
+      const current = getCheckin(dateKey)
       const saved = saveCheckin(dateKey, {
         mental,
         mode,
         answers,
         sleep,
-        body,
-        note: getCheckin(dateKey)?.note ?? '',
+        body: current?.body ?? [],
+        note: current?.note ?? '',
       })
       setExisting(saved)
       setIsEditing(false)
@@ -105,9 +109,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
     ? `Vraag ${step + 1}`
     : step === questions.length
       ? 'Gevoel'
-      : step === questions.length + 1
-        ? 'Slaap'
-        : 'Lichaam'
+      : 'Slaap'
 
   return (
     <Screen title="Dagstart">
@@ -147,10 +149,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
         />
       )}
       {step === questions.length && <MoodStep value={mental} onChange={setMental} />}
-      {step === questions.length + 1 && (
-        <SleepStep value={sleep} onChange={setSleep} />
-      )}
-      {step === lastStep && <BodyStep value={body} onChange={setBody} />}
+      {step === lastStep && <SleepStep value={sleep} onChange={setSleep} />}
 
       {error && (
         <p
@@ -227,23 +226,6 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
 
       {entry.sleep && <SleepSummary sleep={entry.sleep} />}
 
-      <div className="mt-4">
-        <p className="text-xs uppercase tracking-wide text-anker-muted">Lichaam</p>
-        {entry.body.length === 0 ? (
-          <p className="mt-1 text-anker-text">Niets genoteerd</p>
-        ) : (
-          <ul className="mt-1 space-y-1">
-            {entry.body.map((b) => (
-              <li key={b.region} className="flex justify-between text-anker-text">
-                <span>{getRegionLabel(b.region)}</span>
-                <span className="text-anker-muted">
-                  pijn {b.pain} · spanning {b.tension}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       <Button
         variant="secondary"

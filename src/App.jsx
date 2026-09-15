@@ -4,6 +4,7 @@ import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
 import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
+import BodyCard from './modules/checkin/BodyCard.jsx'
 import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
 import History from './modules/history/History.jsx'
@@ -101,6 +102,10 @@ export default function App() {
               <div key={dataVersion} className="space-y-4">
                 <Intention />
                 <Checkin onSaved={refresh} />
+                {/* Decoupled from the Dagstart on purpose: scanning yourself
+                    for pain is a poor way to open a day. Available all day,
+                    asked for by nobody. */}
+                <BodyCard onSaved={refresh} />
                 <EveningCheckin onSaved={refresh} />
                 {/* Below everything, and only once the flow is behind you:
                     the optional extras must never compete with the routine. */}
