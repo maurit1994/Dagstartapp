@@ -1,6 +1,12 @@
 import Scale from '../../components/Scale.jsx'
+import TimeDial from '../../components/TimeDial.jsx'
 import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
-import { formatSleepDuration } from '../../lib/sleep.js'
+import { minutesToTime } from '../../lib/clock.js'
+import { formatSleepDuration, parseTime } from '../../lib/sleep.js'
+
+/** Sensible starting points the first time the dial is touched. */
+const DEFAULT_BED = 23 * 60
+const DEFAULT_WAKE = 7 * 60
 
 /**
  * How last night went: the feeling, the times, and a note about the night.
@@ -9,9 +15,10 @@ import { formatSleepDuration } from '../../lib/sleep.js'
  * flow. They need the watch in your hand and three numbers typed in, which is
  * the kind of step that turns a morning routine into something you skip.
  *
- * Times use native <input type="time"> — on iOS that is the system wheel
- * picker, which beats a custom slider for both speed and accessibility. The
- * duration underneath is what makes entering two times worth the trouble.
+ * Times are set on a 24-hour dial you drag, with the night drawn as an arc
+ * between the two handles. The plain time fields stay underneath: dragging is
+ * fast but coarse, typing is exact, and the two edit the same value. Neither
+ * on its own suits every morning.
  */
 export default function SleepStep({ value, onChange }) {
   const sleep = value ?? {
@@ -23,6 +30,20 @@ export default function SleepStep({ value, onChange }) {
   }
   const duration = formatSleepDuration(sleep.bedtijd, sleep.wakkertijd)
   const set = (key, next) => onChange({ ...sleep, [key]: next })
+
+  // The dial always needs two positions to draw. Until both times are set it
+  // shows a plausible night, and the first drag commits whichever handle
+  // moved — so the dial never quietly invents times you did not choose.
+  const bedMinutes = parseTime(sleep.bedtijd) ?? DEFAULT_BED
+  const wakeMinutes = parseTime(sleep.wakkertijd) ?? DEFAULT_WAKE
+
+  function handleDial({ bedMinutes: nextBed, wakeMinutes: nextWake }) {
+    onChange({
+      ...sleep,
+      bedtijd: minutesToTime(nextBed),
+      wakkertijd: minutesToTime(nextWake),
+    })
+  }
 
   return (
     <div>
@@ -41,7 +62,21 @@ export default function SleepStep({ value, onChange }) {
         />
       </div>
 
-      <div className="mt-5 flex gap-3">
+      <div className="mt-5">
+        <TimeDial
+          bedMinutes={bedMinutes}
+          wakeMinutes={wakeMinutes}
+          onChange={handleDial}
+        />
+      </div>
+      <p
+        className="mt-1 min-h-6 text-center text-base font-medium text-anker-accent"
+        aria-live="polite"
+      >
+        {duration ? `${duration} geslapen` : 'Sleep de maan en de zon'}
+      </p>
+
+      <div className="mt-4 flex gap-3">
         <label className="flex-1 text-sm text-anker-muted">
           Bedtijd
           <input
@@ -63,13 +98,6 @@ export default function SleepStep({ value, onChange }) {
           />
         </label>
       </div>
-      <p
-        className="mt-2 min-h-6 text-center text-base font-medium text-anker-accent"
-        aria-live="polite"
-      >
-        {duration ? `${duration} geslapen` : ' '}
-      </p>
-
       <textarea
         id="slaap-notitie"
         value={sleep.notitie ?? ''}

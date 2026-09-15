@@ -34,7 +34,8 @@ none should be added.
   `date.js` (all date keys), `regions.js` (the permanent body-region ids),
   `questions.js` (the Dagstart questions and the sleep/evening scales),
   `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
-  `scales.js` (the 1-5 colour ramp), `migrate.js` (schema versions),
+  `scales.js` (the 1-5 colour ramp), `clock.js` (the 24-hour dial's
+  geometry), `migrate.js` (schema versions),
   `streak.js`, `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
@@ -107,6 +108,23 @@ and never deletes it, so the move stays reversible.
 Its own step in the Dagstart, between mood and the body map — not bolted onto
 the body screen as the old app had it, because that screen only just fits a
 phone.
+
+Times are set on a 24-hour dial (`components/TimeDial.jsx`) you drag, with
+the night drawn as an arc between a moon and a sun handle. Midnight is at the
+TOP and time runs clockwise, so a night crossing midnight takes the long way
+round the top — the way it was actually slept. All the geometry lives in
+`lib/clock.js`, away from the component, because that is the half that fails
+quietly (an angle off by 90°, a wrapped night drawn the short way) and the
+half that can be tested without a browser.
+
+Three ways in, on purpose: drag (fast, coarse), arrow keys (5 min, 30 with
+shift), and the plain time fields below (exact). They edit one value; none of
+them suits every morning. Pointer capture is what makes a drag survive your
+thumb leaving the circle.
+
+The arc's night-to-dawn gradient is the ONE gradient in the app and the one
+documented exception to the colour rules above: it says which end is evening
+and which is morning, which is information about the thing being set.
 
 Times are plain "HH:MM" strings with no date attached, and `lib/sleep.js` is
 the only place that turns them into a duration. A wake time at or before the
