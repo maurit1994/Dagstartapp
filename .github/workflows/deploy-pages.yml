@@ -1,0 +1,56 @@
+# Publishes Anker to GitHub Pages on every push to main.
+#
+# No third-party host and no new account: this uses the GitHub you already
+# have. The one cost is that the REPOSITORY must be public on a free plan —
+# Pages from a private repo needs GitHub Pro. The code holds no secrets and
+# your data never enters it (it lives only in your phone's localStorage), so
+# public code does not mean public data.
+#
+# Settings -> Pages -> Source must be set to "GitHub Actions" once, by hand.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; always finish the newest.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # A broken build must never reach the phone you rely on.
+      - run: npm test
+      - run: npm run build
+        env:
+          # Pages serves a project at /<repo>/, not the domain root. The PWA
+          # manifest follows BASE_PATH, or the app cannot be installed.
+          BASE_PATH: /${{ github.event.repository.name }}/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

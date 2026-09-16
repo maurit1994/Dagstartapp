@@ -35,8 +35,8 @@ none should be added.
   `questions.js` (the Dagstart questions and the sleep/evening scales),
   `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
   `scales.js` (the 1-5 colour ramp), `clock.js` (the 24-hour dial's
-  geometry), `migrate.js` (schema versions),
-  `streak.js`, `backup.js`, `persist.js`.
+  geometry), `migrate.js` (schema versions), `streak.js`, `insights.js`
+  (the one line shown after saving), `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
@@ -83,11 +83,19 @@ the body to reach them. Tap and score must stay on ONE screen.
 (`maurit1994/ds-k9m4x2`) — these are questions they answered for months, and
 rephrasing them quietly changes what gets answered. Do not "improve" them.
 
-Two modes, Lite (3) and Full (6), with Full a strict superset. Lite is the
-default every day and is never remembered: a remembered Full is exactly the
-friction the switch exists to remove. The weekend question appears on FRIDAY
-only — the old app asked it on Sat/Sun, which asks about a weekend that is
-already happening.
+Two modes, Lite (3) and Full (6). Full is a strict superset AND begins with
+exactly Lite's three, so switching mid-flow keeps your place and loses
+nothing. Lite is the default every day and is never remembered.
+
+**The length is never chosen up front.** Lite simply starts, and the three
+extra questions are offered once the short set is behind you. A fork at the
+start is a decision taken at the hour you have least to spend on decisions,
+and one you can pick wrong. This changes the order questions are ASKED
+against the old app; it changes no wording, and the summary still renders in
+ALL_QUESTION_IDS order, so the record is unchanged.
+
+The weekend question appears on FRIDAY only — the old app asked it on Sat/Sun,
+which asks about a weekend that is already happening.
 
 **Render stored answers from `ALL_QUESTION_IDS`, never from
 `questionsForMode`.** Which questions get asked depends on the mode and the
@@ -200,6 +208,43 @@ fields through untouched. Checkin passes `body` and `note`; BodyCard and
 Extras spread the stored entry before overwriting only their own field. Get
 this wrong and saving one silently wipes another — covered by end-to-end
 tests that save from each and assert the rest survived.
+
+## Nothing here may punish a missed day
+
+A habit tool ends habits by punishing gaps, not by being too hard. Four
+things exist for this, and none of them should be softened into
+encouragement — every one states a fact.
+
+- **`daysInWindow` is the headline number** in History ("6 van je laatste 30
+  dagen"), not the streak. A streak resetting to zero after one missed day
+  tells you the fortnight before the gap no longer counts, which is where
+  people stop. `longestStreak` sits beside it so a broken run cannot erase
+  that the run happened.
+- **`BackfillCard.jsx`** offers yesterday when yesterday is empty, and
+  disappears the moment it is filled. It renders a second `Checkin` with a
+  different `now`, which is why Checkin takes `now` and `label` as props.
+  It is an exit, not a debt collector.
+- **"Ik hou het hier bij"** saves and stops on any step. One tapped face is a
+  real day; `isDagstartDone` already agreed, and now the UI does too.
+- **`insights.js`** returns ONE factual line after saving, or null. No praise,
+  no "keep it up" — invented cheerfulness is obvious, and from a health tool
+  it is worse than silence. There is a test asserting it never congratulates.
+
+The insight is DERIVED on render, never held in state: saving calls
+`onSaved()`, which refreshes the Vandaag cards and remounts the component, so
+state set just before that call is thrown away before it is ever painted.
+This is the third time that remount has eaten something — check for it.
+
+## Hosting
+
+`.github/workflows/deploy-pages.yml` publishes to GitHub Pages on every push
+to main, running `npm test` first so a broken build cannot reach the phone.
+No third-party host and no new account; the cost is that the repository must
+be PUBLIC on a free GitHub plan. The code holds no secrets and the data never
+enters the repo, so public code is not public data.
+
+Pages serves a project at `/<repo>/`, so the workflow sets `BASE_PATH` and the
+PWA manifest follows it — without that the app cannot be installed.
 
 ## The PIN
 

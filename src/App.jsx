@@ -4,6 +4,7 @@ import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
 import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
+import BackfillCard from './modules/checkin/BackfillCard.jsx'
 import BodyCard from './modules/checkin/BodyCard.jsx'
 import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
@@ -106,6 +107,9 @@ export default function App() {
                     for pain is a poor way to open a day. Available all day,
                     asked for by nobody. */}
                 <BodyCard onSaved={refresh} />
+                {/* Only when yesterday was missed, and gone the moment it is
+                    filled. A way back, not a debt collector. */}
+                <BackfillCard onSaved={refresh} />
                 <EveningCheckin onSaved={refresh} />
                 {/* Below everything, and only once the flow is behind you:
                     the optional extras must never compete with the routine. */}

@@ -43,7 +43,8 @@ export const QUESTIONS = {
 export const MODES = ['lite', 'full']
 
 const LITE_IDS = ['goed', 'bereiken', 'zin']
-const FULL_IDS = ['goed', 'dankbaar', 'bereiken', 'gedragen', 'onrustig', 'zin']
+/** The three Full adds on top of Lite, kept in the old app's relative order. */
+const EXTRA_IDS = ['dankbaar', 'gedragen', 'onrustig']
 
 /**
  * Every question id that can be stored, in canonical display order.
@@ -68,14 +69,30 @@ export function isWeekendPlanningDay(date = new Date()) {
 
 /**
  * The questions to ask, in order.
+ *
+ * Lite's three come FIRST in both modes, and Full appends its extra three
+ * after them. The previous app interleaved them, but it also made you choose
+ * the length before you started — a decision every single morning, taken at
+ * the hour you have least to spend on decisions. Asking the short set first
+ * and offering the rest once it is behind you removes that: you cannot pick
+ * wrong, and the extras are something you add on a good day rather than a
+ * commitment you regret on a bad one.
+ *
+ * This changes the order questions are ASKED, never their wording, and the
+ * summary still renders in ALL_QUESTION_IDS order, so the record is
+ * unchanged.
+ *
  * @param {'lite'|'full'} mode
  * @param {Date} [date] decides whether the weekend question is included
  */
 export function questionsForMode(mode, date = new Date()) {
-  const ids = mode === 'full' ? [...FULL_IDS] : [...LITE_IDS]
+  const ids = mode === 'full' ? [...LITE_IDS, ...EXTRA_IDS] : [...LITE_IDS]
   if (isWeekendPlanningDay(date)) ids.push('weekend')
   return ids.map((id) => QUESTIONS[id])
 }
+
+/** How many extra questions Full adds, for the offer at the end of Lite. */
+export const EXTRA_QUESTION_COUNT = EXTRA_IDS.length
 
 /* -------------------------------------------------------------------- sleep */
 

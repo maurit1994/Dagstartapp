@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
-import ModeSwitch from './ModeSwitch.jsx'
 import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
 import SleepStep from './SleepStep.jsx'
@@ -10,12 +9,14 @@ import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
 import { formatSleepDuration } from '../../lib/sleep.js'
 import {
   ALL_QUESTION_IDS,
+  EXTRA_QUESTION_COUNT,
   QUESTIONS,
   questionsForMode,
 } from '../../lib/questions.js'
 import { getLocalDateKey, formatDateKeyNL } from '../../lib/date.js'
 import { isDagstartDone } from '../../lib/dagstart.js'
-import { getCheckin, saveCheckin } from '../../lib/storage.js'
+import { getAllCheckins, getCheckin, saveCheckin } from '../../lib/storage.js'
+import { insightFor } from '../../lib/insights.js'
 
 /**
  * The Dagstart: the written questions, then mood and sleep.
@@ -30,7 +31,7 @@ import { getCheckin, saveCheckin } from '../../lib/storage.js'
  * a summary, and "Aanpassen" reopens the flow with the stored answers filled
  * in.
  */
-export default function Checkin({ onSaved, now = new Date() }) {
+export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' }) {
   const dateKey = getLocalDateKey(now)
   const stored = getCheckin(dateKey)
 
@@ -67,8 +68,8 @@ export default function Checkin({ onSaved, now = new Date() }) {
 
   function changeMode(next) {
     setMode(next)
-    // Switching length must never lose what is already written, and must never
-    // strand you on a step that no longer exists.
+    // Full begins with exactly Lite's questions, so your position stays valid
+    // and nothing already written moves or is lost.
     setStep((current) => Math.min(current, questionsForMode(next, now).length + 1))
   }
 
@@ -100,7 +101,12 @@ export default function Checkin({ onSaved, now = new Date() }) {
 
   if (!isEditing && isDagstartDone(existing)) {
     return (
-      <CheckinSummary entry={existing} dateKey={dateKey} onEdit={beginEdit} />
+      <CheckinSummary
+        entry={existing}
+        dateKey={dateKey}
+        label={label}
+        onEdit={beginEdit}
+      />
     )
   }
 
@@ -112,11 +118,7 @@ export default function Checkin({ onSaved, now = new Date() }) {
       : 'Slaap'
 
   return (
-    <Screen title="Dagstart">
-      {/* Only while the written questions are on screen — it does nothing on
-          the mood, body and note steps, and it costs room the body map needs. */}
-      {step < questions.length && <ModeSwitch mode={mode} onChange={changeMode} />}
-
+    <Screen title={label}>
       {/* Thick enough to read at a glance, and it names where you are — a
           bare "4 / 7" tells you how much is left but not what you are doing. */}
       <div className="mb-5 mt-4">
@@ -151,6 +153,19 @@ export default function Checkin({ onSaved, now = new Date() }) {
       {step === questions.length && <MoodStep value={mental} onChange={setMental} />}
       {step === lastStep && <SleepStep value={sleep} onChange={setSleep} />}
 
+      {/* Offered once the short set is behind you, never before: a fork at the
+          start is a decision taken at the hour you have least to spend on
+          decisions, and one you can pick wrong. */}
+      {mode === 'lite' && step === questions.length - 1 && (
+        <button
+          type="button"
+          onClick={() => changeMode('full')}
+          className="mt-4 w-full rounded-xl border border-dashed border-anker-border py-3 text-sm text-anker-muted"
+        >
+          Nog {EXTRA_QUESTION_COUNT} vragen erbij?
+        </button>
+      )}
+
       {error && (
         <p
           role="alert"
@@ -177,6 +192,19 @@ export default function Checkin({ onSaved, now = new Date() }) {
         )}
       </div>
 
+      {/* An exit at every step. On the worst mornings one tapped face is the
+          difference between a record and a gap, and the app must not stand in
+          the way of that being enough. */}
+      {step < lastStep && (
+        <button
+          type="button"
+          onClick={handleSave}
+          className="mt-3 w-full text-center text-xs text-anker-muted underline"
+        >
+          Ik hou het hier bij
+        </button>
+      )}
+
       {existing && (
         <button
           type="button"
@@ -191,7 +219,11 @@ export default function Checkin({ onSaved, now = new Date() }) {
 }
 
 /** What you see once the Dagstart is done: the answers, and a way back in. */
-function CheckinSummary({ entry, dateKey, onEdit }) {
+function CheckinSummary({ entry, dateKey, label, onEdit }) {
+  // Derived on render, never held in state: saving calls onSaved(), which
+  // refreshes the Vandaag cards and remounts this component — state set just
+  // before that call is thrown away before it is ever painted.
+  const insight = insightFor(getAllCheckins(), dateKey)
   const mood = MOOD_SCALE.find((m) => m.value === entry.mental)
   // Render from what was ANSWERED, not from what today's rules would ask.
   // Which questions get asked depends on the mode and the day, and those
@@ -201,8 +233,14 @@ function CheckinSummary({ entry, dateKey, onEdit }) {
   )
 
   return (
-    <Screen title="Dagstart ✓">
+    <Screen title={`${label} ✓`}>
       <p className="text-anker-muted">{formatDateKeyNL(dateKey)}</p>
+
+      {insight && (
+        <p className="mt-3 rounded-xl border border-anker-accent/40 bg-anker-accent/10 p-3 text-anker-text">
+          {insight}
+        </p>
+      )}
 
       {answered.length > 0 && (
         <dl className="mt-4 space-y-3">

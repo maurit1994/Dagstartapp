@@ -3,12 +3,14 @@ import Screen from '../../components/Screen.jsx'
 import { getAllCheckins } from '../../lib/storage.js'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
 import { formatDateKeyNL } from '../../lib/date.js'
-import { calculateStreak } from '../../lib/streak.js'
+import { calculateStreak, daysInWindow, longestStreak } from '../../lib/streak.js'
 
 export default function History() {
   const [checkins] = useState(() => getAllCheckins())
   const dateKeys = Object.keys(checkins).sort().reverse()
   const streak = calculateStreak(dateKeys)
+  const last30 = daysInWindow(dateKeys, 30)
+  const best = longestStreak(dateKeys)
 
   if (dateKeys.length === 0) {
     return (
@@ -22,15 +24,36 @@ export default function History() {
   return (
     <>
       <Screen title="Je reeks">
+        {/* The 30-day count comes FIRST and is the bigger number on purpose.
+            A streak resetting to zero after one missed day tells you the
+            fortnight before the gap no longer counts, and that is where
+            people stop. This one barely moves, and it is the truth about
+            what you actually did. */}
         <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-semibold text-anker-accent">{streak}</span>
-          <span className="text-anker-text">
-            {streak === 1 ? 'dag op rij' : 'dagen op rij'}
-          </span>
+          <span className="text-4xl font-semibold text-anker-done">{last30}</span>
+          <span className="text-anker-text">van je laatste 30 dagen</span>
         </div>
-        <p className="mt-2">
-          {dateKeys.length} check-in{dateKeys.length === 1 ? '' : 's'} in totaal.
-        </p>
+
+        <dl className="mt-4 space-y-1">
+          <div className="flex justify-between">
+            <dt>Nu op rij</dt>
+            <dd className="text-anker-text">
+              {streak} {streak === 1 ? 'dag' : 'dagen'}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt>Langste reeks ooit</dt>
+            <dd className="text-anker-text">
+              {best} {best === 1 ? 'dag' : 'dagen'}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt>Totaal</dt>
+            <dd className="text-anker-text">
+              {dateKeys.length} check-in{dateKeys.length === 1 ? '' : 's'}
+            </dd>
+          </div>
+        </dl>
       </Screen>
 
       <Screen title="Per dag">

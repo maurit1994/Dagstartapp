@@ -20,15 +20,21 @@ describe('questionsForMode', () => {
     expect(ids('lite', MONDAY)).toEqual(['goed', 'bereiken', 'zin'])
   })
 
-  it('full asks exactly six, in the old app\'s order', () => {
+  it("full asks six, with Lite's three FIRST and the extras after", () => {
+    // Deliberately not the old app's interleaved order: the short set has to
+    // be answerable without committing to the long one.
     expect(ids('full', MONDAY)).toEqual([
       'goed',
-      'dankbaar',
       'bereiken',
+      'zin',
+      'dankbaar',
       'gedragen',
       'onrustig',
-      'zin',
     ])
+  })
+
+  it("full BEGINS with exactly the Lite questions, so a mid-flow switch keeps your place", () => {
+    expect(ids('full', MONDAY).slice(0, 3)).toEqual(ids('lite', MONDAY))
   })
 
   it('full is a superset of lite', () => {
