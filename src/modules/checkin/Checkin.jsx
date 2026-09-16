@@ -1,50 +1,92 @@
 import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
+import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
-import PainStep from './PainStep.jsx'
-import NoteStep from './NoteStep.jsx'
-import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
+import SleepStep from './SleepStep.jsx'
+import { MOOD_SCALE } from '../../lib/regions.js'
+import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
+import { formatSleepDuration } from '../../lib/sleep.js'
+import {
+  ALL_QUESTION_IDS,
+  EXTRA_QUESTION_COUNT,
+  QUESTIONS,
+  questionsForMode,
+} from '../../lib/questions.js'
 import { getLocalDateKey, formatDateKeyNL } from '../../lib/date.js'
-import { getCheckin, saveCheckin } from '../../lib/storage.js'
-
-const STEPS = ['Gevoel', 'Pijn', 'Notitie']
+import { isDagstartDone } from '../../lib/dagstart.js'
+import { getAllCheckins, getCheckin, saveCheckin } from '../../lib/storage.js'
+import { insightFor } from '../../lib/insights.js'
 
 /**
- * The daily check-in. One entry per local calendar day; opening a day that
- * already has an entry shows a summary, and "Aanpassen" reopens the steps
- * with the stored answers filled in.
+ * The Dagstart: the written questions, then mood and sleep.
  *
- * Props:
- *   onSaved - optional callback so the rest of the app can refresh
+ * The body map is deliberately NOT here. Opening the day by scanning yourself
+ * for pain makes the pain louder, and it is a poor thing to have to do before
+ * anything good has happened yet — it lives on its own card below, available
+ * all day. Garmin and the free note are in Extras for the same reason: a
+ * routine you stop starting records nothing.
+ *
+ * One entry per local calendar day; opening a day that already has one shows
+ * a summary, and "Aanpassen" reopens the flow with the stored answers filled
+ * in.
  */
-export default function Checkin({ onSaved }) {
-  const dateKey = getLocalDateKey()
+export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' }) {
+  const dateKey = getLocalDateKey(now)
+  const stored = getCheckin(dateKey)
 
-  // Read once on mount. localStorage is synchronous, so the lazy initialiser
-  // form of useState (passing a function) keeps it off every re-render.
-  const [existing, setExisting] = useState(() => getCheckin(dateKey))
-  const [isEditing, setIsEditing] = useState(() => getCheckin(dateKey) === null)
+  // Not `stored === null`: the evening check-in writes into the same day
+  // entry, so saving only the evening would otherwise show an empty
+  // "Dagstart ✓" for a morning that never happened.
+  const [existing, setExisting] = useState(stored)
+  const [isEditing, setIsEditing] = useState(!isDagstartDone(stored))
 
+  const [mode, setMode] = useState('lite')
+  const [answers, setAnswers] = useState(() => stored?.answers ?? {})
   const [step, setStep] = useState(0)
-  const [mental, setMental] = useState(() => getCheckin(dateKey)?.mental ?? null)
-  const [pain, setPain] = useState(() => getCheckin(dateKey)?.pain ?? [])
-  const [note, setNote] = useState(() => getCheckin(dateKey)?.note ?? '')
+  const [mental, setMental] = useState(() => stored?.mental ?? null)
+  const [sleep, setSleep] = useState(() => stored?.sleep ?? null)
   const [error, setError] = useState(null)
+
+  const questions = questionsForMode(mode, now)
+  // The written questions, then mood, then sleep. Nothing else: everything
+  // optional or unpleasant lives on its own card below, so the daily routine
+  // stays short enough to actually be done.
+  const stepCount = questions.length + 2
+  const lastStep = stepCount - 1
 
   function beginEdit() {
     const current = getCheckin(dateKey)
+    setMode(current?.mode ?? 'lite')
+    setAnswers(current?.answers ?? {})
     setMental(current?.mental ?? null)
-    setPain(current?.pain ?? [])
-    setNote(current?.note ?? '')
+    setSleep(current?.sleep ?? null)
     setStep(0)
     setError(null)
     setIsEditing(true)
   }
 
+  function changeMode(next) {
+    setMode(next)
+    // Full begins with exactly Lite's questions, so your position stays valid
+    // and nothing already written moves or is lost.
+    setStep((current) => Math.min(current, questionsForMode(next, now).length + 1))
+  }
+
   function handleSave() {
     try {
-      const saved = saveCheckin(dateKey, { mental, pain, note })
+      // `body` belongs to BodyCard and `note` to Extras; pass both through
+      // untouched so saving the Dagstart can never wipe what was entered
+      // there.
+      const current = getCheckin(dateKey)
+      const saved = saveCheckin(dateKey, {
+        mental,
+        mode,
+        answers,
+        sleep,
+        body: current?.body ?? [],
+        note: current?.note ?? '',
+      })
       setExisting(saved)
       setIsEditing(false)
       setError(null)
@@ -57,36 +99,72 @@ export default function Checkin({ onSaved }) {
     }
   }
 
-  if (!isEditing && existing) {
+  if (!isEditing && isDagstartDone(existing)) {
     return (
-      <CheckinSummary entry={existing} dateKey={dateKey} onEdit={beginEdit} />
+      <CheckinSummary
+        entry={existing}
+        dateKey={dateKey}
+        label={label}
+        onEdit={beginEdit}
+      />
     )
   }
 
+  const questionStep = step < questions.length ? questions[step] : null
+  const stepLabel = questionStep
+    ? `Vraag ${step + 1}`
+    : step === questions.length
+      ? 'Gevoel'
+      : 'Slaap'
+
   return (
-    <Screen title="Check-in">
-      <div className="mb-5 flex items-center gap-2">
-        {STEPS.map((label, index) => (
-          <div key={label} className="flex flex-1 flex-col gap-1.5">
+    <Screen title={label}>
+      {/* Thick enough to read at a glance, and it names where you are — a
+          bare "4 / 7" tells you how much is left but not what you are doing. */}
+      <div className="mb-5 mt-4">
+        <div className="flex gap-1" aria-hidden="true">
+          {Array.from({ length: stepCount }, (_, index) => (
             <div
-              className={`h-1 rounded-full ${
-                index <= step ? 'bg-anker-accent' : 'bg-anker-border'
+              key={index}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                index < step
+                  ? 'bg-anker-done'
+                  : index === step
+                    ? 'bg-anker-accent'
+                    : 'bg-anker-border'
               }`}
             />
-            <span
-              className={`text-xs ${
-                index === step ? 'text-anker-text' : 'text-anker-muted'
-              }`}
-            >
-              {label}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-anker-muted">
+          {stepLabel} · {step + 1} van {stepCount}
+        </p>
       </div>
 
-      {step === 0 && <MoodStep value={mental} onChange={setMental} />}
-      {step === 1 && <PainStep value={pain} onChange={setPain} />}
-      {step === 2 && <NoteStep value={note} onChange={setNote} />}
+      {questionStep && (
+        <QuestionStep
+          question={questionStep}
+          value={answers[questionStep.id] ?? ''}
+          onChange={(value) =>
+            setAnswers((current) => ({ ...current, [questionStep.id]: value }))
+          }
+        />
+      )}
+      {step === questions.length && <MoodStep value={mental} onChange={setMental} />}
+      {step === lastStep && <SleepStep value={sleep} onChange={setSleep} />}
+
+      {/* Offered once the short set is behind you, never before: a fork at the
+          start is a decision taken at the hour you have least to spend on
+          decisions, and one you can pick wrong. */}
+      {mode === 'lite' && step === questions.length - 1 && (
+        <button
+          type="button"
+          onClick={() => changeMode('full')}
+          className="mt-4 w-full rounded-xl border border-dashed border-anker-border py-3 text-sm text-anker-muted"
+        >
+          Nog {EXTRA_QUESTION_COUNT} vragen erbij?
+        </button>
+      )}
 
       {error && (
         <p
@@ -103,13 +181,9 @@ export default function Checkin({ onSaved }) {
             Terug
           </Button>
         )}
-        {step < STEPS.length - 1 ? (
-          <Button
-            className="flex-1"
-            onClick={() => setStep(step + 1)}
-            disabled={step === 0 && mental === null}
-          >
-            {step === 0 && mental === null ? 'Kies eerst hoe je je voelt' : 'Volgende'}
+        {step < lastStep ? (
+          <Button className="flex-1" onClick={() => setStep(step + 1)}>
+            Volgende
           </Button>
         ) : (
           <Button className="flex-1" onClick={handleSave}>
@@ -117,6 +191,19 @@ export default function Checkin({ onSaved }) {
           </Button>
         )}
       </div>
+
+      {/* An exit at every step. On the worst mornings one tapped face is the
+          difference between a record and a gap, and the app must not stand in
+          the way of that being enough. */}
+      {step < lastStep && (
+        <button
+          type="button"
+          onClick={handleSave}
+          className="mt-3 w-full text-center text-xs text-anker-muted underline"
+        >
+          Ik hou het hier bij
+        </button>
+      )}
 
       {existing && (
         <button
@@ -131,50 +218,103 @@ export default function Checkin({ onSaved }) {
   )
 }
 
-/** What you see once today is done: the answers, and a way back in. */
-function CheckinSummary({ entry, dateKey, onEdit }) {
+/** What you see once the Dagstart is done: the answers, and a way back in. */
+function CheckinSummary({ entry, dateKey, label, onEdit }) {
+  // Derived on render, never held in state: saving calls onSaved(), which
+  // refreshes the Vandaag cards and remounts this component — state set just
+  // before that call is thrown away before it is ever painted.
+  const insight = insightFor(getAllCheckins(), dateKey)
   const mood = MOOD_SCALE.find((m) => m.value === entry.mental)
+  // Render from what was ANSWERED, not from what today's rules would ask.
+  // Which questions get asked depends on the mode and the day, and those
+  // rules change — an answer already given must stay visible regardless.
+  const answered = ALL_QUESTION_IDS.filter((id) => entry.answers[id]).map(
+    (id) => QUESTIONS[id],
+  )
 
   return (
-    <Screen title="Check-in ✓">
+    <Screen title={`${label} ✓`}>
       <p className="text-anker-muted">{formatDateKeyNL(dateKey)}</p>
+
+      {insight && (
+        <p className="mt-3 rounded-xl border border-anker-accent/40 bg-anker-accent/10 p-3 text-anker-text">
+          {insight}
+        </p>
+      )}
+
+      {answered.length > 0 && (
+        <dl className="mt-4 space-y-3">
+          {answered.map((question) => (
+            <div key={question.id}>
+              <dt className="text-xs uppercase tracking-wide text-anker-muted">
+                {question.q}
+              </dt>
+              <dd className="mt-0.5 whitespace-pre-wrap text-anker-text">
+                {entry.answers[question.id]}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       <div className="mt-4 flex items-center gap-3">
         <span className="text-4xl leading-none">{mood?.emoji ?? '—'}</span>
         <span className="text-anker-text">{mood?.label ?? 'Niet ingevuld'}</span>
       </div>
 
-      <div className="mt-4">
-        <p className="text-xs uppercase tracking-wide text-anker-muted">Pijn</p>
-        {entry.pain.length === 0 ? (
-          <p className="mt-1 text-anker-text">Geen pijn genoteerd</p>
-        ) : (
-          <ul className="mt-1 space-y-1">
-            {entry.pain.map((p) => (
-              <li key={p.region} className="flex justify-between text-anker-text">
-                <span>{getRegionLabel(p.region)}</span>
-                <span className="text-anker-muted">{p.intensity}/5</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {entry.sleep && <SleepSummary sleep={entry.sleep} />}
 
-      {entry.note && (
-        <div className="mt-4">
-          <p className="text-xs uppercase tracking-wide text-anker-muted">Notitie</p>
-          <p className="mt-1 whitespace-pre-wrap text-anker-text">{entry.note}</p>
-        </div>
-      )}
 
       <Button
         variant="secondary"
         className="mt-5 w-full"
-        aria-label="Check-in aanpassen"
+        aria-label="Dagstart aanpassen"
         onClick={onEdit}
       >
         Aanpassen
       </Button>
     </Screen>
+  )
+}
+
+/** Last night, as recorded. Only the parts that were actually answered. */
+function SleepSummary({ sleep }) {
+  const duration = formatSleepDuration(sleep.bedtijd, sleep.wakkertijd)
+  const garmin = sleep.garmin ?? {}
+
+  const rows = [
+    ['In bed', sleep.bedtijd && sleep.wakkertijd
+      ? `${sleep.bedtijd} → ${sleep.wakkertijd}${duration ? ` (${duration})` : ''}`
+      : null],
+    ['Body Battery', garmin.bodyBattery],
+    ['Slaapscore', garmin.slaapscore],
+    ['HRV', garmin.hrvStatus],
+  ].filter(([, value]) => value !== null && value !== undefined)
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs uppercase tracking-wide text-anker-muted">Slaap</p>
+      {sleep.subjectief && (
+        <p className="mt-1 text-anker-text">
+          {SLEEP_EMOJI[sleep.subjectief]} {SLEEP_SCALE[sleep.subjectief]}
+        </p>
+      )}
+      {rows.length > 0 && (
+        <dl className="mt-1 space-y-0.5">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex justify-between">
+              <dt className="text-anker-muted">{label}</dt>
+              <dd className="text-anker-text">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {garmin.gedragen === false && (
+        <p className="mt-1 text-sm text-anker-muted">Garmin niet gedragen</p>
+      )}
+      {sleep.notitie && (
+        <p className="mt-1 whitespace-pre-wrap text-anker-text">{sleep.notitie}</p>
+      )}
+    </div>
   )
 }

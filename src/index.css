@@ -1,14 +1,31 @@
 @import "tailwindcss";
 
-/* App-wide defaults. Anker is a dark, calm, one-thing-at-a-time interface:
-   low contrast noise, large touch targets, no decoration competing for attention. */
+/**
+ * Anker's palette.
+ *
+ * Dark, because this is opened first thing in the morning and last thing at
+ * night. The neutrals are warmed slightly off pure slate: cold blue-grey
+ * reads clinical, and this is a tool for bad mornings.
+ *
+ * Three jobs, kept strictly apart so colour always means something:
+ *  - `accent`  ONLY marks what to do next — the primary button, the current
+ *    step, the active tab. Nothing decorative is ever accent-coloured.
+ *  - the 1-5 scales colour themselves from their VALUE (lib/scales.js), so a
+ *    filled-in day can be read without reading any words.
+ *  - `done` marks something finished and needing nothing from you.
+ *
+ * Saturation stays low throughout. A health tool should not shout.
+ */
 @theme {
-  --color-anker-bg: #0f172a;
-  --color-anker-surface: #1e293b;
-  --color-anker-border: #334155;
-  --color-anker-text: #e2e8f0;
-  --color-anker-muted: #94a3b8;
-  --color-anker-accent: #38bdf8;
+  --color-anker-bg: #14181f;
+  --color-anker-surface: #1c222b;
+  --color-anker-raised: #232b36;
+  --color-anker-border: #2f3742;
+  --color-anker-text: #e8eaed;
+  --color-anker-muted: #a3adba;
+  --color-anker-accent: #4cc2e8;
+  --color-anker-accent-ink: #0b1116;
+  --color-anker-done: #4a9e6a;
 }
 
 html,
@@ -23,4 +40,20 @@ body {
   /* Stop iOS Safari from rubber-band scrolling the whole shell. */
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Every interactive element gets a visible focus ring — the app is used
+   one-handed, but it must still be operable without a pointer. */
+:focus-visible {
+  outline: 2px solid var(--color-anker-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
