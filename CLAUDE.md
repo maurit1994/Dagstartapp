@@ -247,10 +247,23 @@ encouragement — every one states a fact.
   tells you the fortnight before the gap no longer counts, which is where
   people stop. `longestStreak` sits beside it so a broken run cannot erase
   that the run happened.
-- **`BackfillCard.jsx`** offers yesterday when yesterday is empty, and
-  disappears the moment it is filled. It renders a second `Checkin` with a
-  different `now`, which is why Checkin takes `now` and `label` as props.
-  It is an exit, not a debt collector.
+- **`DaySwitcher.jsx`** puts Gisteren beside Vandaag on the daily screens.
+  Yesterday is EDITABLE, not merely fillable-when-empty: you remember the
+  evening at breakfast, or you tapped the wrong face. Every Vandaag card
+  takes `now` as a prop and derives its own date key from it, so App only
+  has to hand them a different moment — for yesterday that moment is its
+  END (23:59), or the evening card would judge a finished day by this
+  morning's clock and stay shut. The container is keyed
+  `` `${dataVersion}-${viewDay}` `` because BodyCard, Extras and Checkin
+  cache stored values in `useState` initialisers; without the remount a day
+  switch would show the other day's answers. It is an exit, not a debt
+  collector: the switcher is always there, it never nags, and the only nudge
+  is the quiet line under Vandaag when yesterday stayed empty.
+  Two days only. Further back belongs in Historie; a date picker on the
+  daily screen answers a question nobody has at breakfast.
+  (It replaced `BackfillCard.jsx`, which only appeared when yesterday was
+  COMPLETELY empty — so a half-filled or simply wrong yesterday could not be
+  corrected at all.)
 - **"Ik hou het hier bij"** saves and stops on any step. One tapped face is a
   real day; `isDagstartDone` already agreed, and now the UI does too.
 - **`insights.js`** returns ONE factual line after saving, or null. No praise,

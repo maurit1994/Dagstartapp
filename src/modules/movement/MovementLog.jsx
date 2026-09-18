@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
+import DaySwitcher from '../../components/DaySwitcher.jsx'
 import {
   DURATIONS,
   INTENSITIES,
@@ -75,27 +76,13 @@ export default function MovementLog({ onSaved, now = new Date() }) {
 
   return (
     <Screen title="Wat heb je gedaan?">
-      <div className="flex gap-2" role="tablist" aria-label="Welke dag">
-        {[
-          { offset: 0, label: 'Vandaag' },
-          { offset: 1, label: 'Gisteren' },
-        ].map((option) => (
-          <button
-            key={option.offset}
-            type="button"
-            role="tab"
-            aria-selected={dayOffset === option.offset}
-            onClick={() => setDayOffset(option.offset)}
-            className={`min-h-11 flex-1 rounded-xl border text-sm transition ${
-              dayOffset === option.offset
-                ? 'border-anker-accent bg-anker-accent/15 text-anker-text'
-                : 'border-anker-border bg-anker-bg text-anker-muted'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {/* The shared switcher, not a copy of it: the Vandaag tab has the same
+          control, and two hand-rolled versions is how they drift apart. */}
+      <DaySwitcher
+        value={dayOffset === 0 ? 'today' : 'yesterday'}
+        onChange={(day) => setDayOffset(day === 'today' ? 0 : 1)}
+        dateKey={dateKey}
+      />
 
       <p className="mt-5 text-sm text-anker-muted">Sport</p>
       {form.sports.length === 0 && (

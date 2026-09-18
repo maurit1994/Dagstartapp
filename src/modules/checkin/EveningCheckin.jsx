@@ -15,7 +15,7 @@ import {
 } from '../../lib/questions.js'
 import { getLocalDateKey } from '../../lib/date.js'
 import { isDagstartDone } from '../../lib/dagstart.js'
-import { getCheckin, getTodayIntention, saveEvening } from '../../lib/storage.js'
+import { getCheckin, getIntention, saveEvening } from '../../lib/storage.js'
 
 /**
  * The evening half of the day, carried over from the user's previous app:
@@ -43,7 +43,10 @@ export const EVENING_HOUR = 17
 
 export default function EveningCheckin({ onSaved, now = new Date() }) {
   const dateKey = getLocalDateKey(now)
-  const priority = getTodayIntention()
+  // Keyed on the day being viewed, not on today: the evening quotes the
+  // morning's `bereiken` back at you, and on a past day that must be THAT
+  // day's intention. Reading today's would quietly ask about the wrong one.
+  const priority = getIntention(dateKey)
   const entry = getCheckin(dateKey)
   const stored = entry?.evening ?? null
   const morningDone = isDagstartDone(entry)
