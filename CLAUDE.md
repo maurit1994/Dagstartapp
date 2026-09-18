@@ -35,8 +35,9 @@ none should be added.
   `questions.js` (the Dagstart questions and the sleep/evening scales),
   `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
   `scales.js` (the 1-5 colour ramp), `clock.js` (the 24-hour dial's
-  geometry), `migrate.js` (schema versions), `streak.js`, `insights.js`
-  (the one line shown after saving), `backup.js`, `persist.js`.
+  geometry), `movement.js` (sport/physio options and the week tally),
+  `migrate.js` (schema versions), `streak.js`, `insights.js` (the one line
+  shown after saving), `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
@@ -208,6 +209,32 @@ fields through untouched. Checkin passes `body` and `note`; BodyCard and
 Extras spread the stored entry before overwriting only their own field. Get
 this wrong and saving one silently wipes another — covered by end-to-end
 tests that save from each and assert the rest survived.
+
+## Beweging
+
+A fourth tab (`modules/movement/`), not a card on Vandaag. Exercise does not
+happen at a fixed hour — you log it after the gym at seven in the evening —
+and Vandaag is already five cards deep. It also has a weekly shape the other
+fields do not, and that overview is the reason to keep logging at all.
+
+Options are VERBATIM from the previous app, for the same reason as the
+Dagstart questions: renaming a category makes the old and new records
+incomparable.
+
+`"Geen"` is a sport type meaning "I did not exercise today" — an ANSWER, not
+an absence, so a block holding only it is kept and counts as a logged day. It
+is exclusive: `migrateMovement` collapses the list to it, because "no sport,
+and also an hour of running" cannot both be true.
+
+**The Vandaag/Gisteren toggle writes to that day's OWN entry** rather than
+storing a marker on the session. A session logged Tuesday that happened Monday
+night belongs to Monday; every later question about "how many days did I
+train" then needs no special handling.
+
+The week is a rolling 7 days including today, matching `daysInWindow` — a
+calendar week makes Monday morning look like failure every single week. A
+missed physio day is never coloured as a failure in the strip; that is the
+punishment this app exists to avoid.
 
 ## Nothing here may punish a missed day
 
