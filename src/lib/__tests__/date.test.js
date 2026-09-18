@@ -3,6 +3,7 @@ import {
   daysBetweenKeys,
   getDateKeyDaysAgo,
   getLocalDateKey,
+  relativeDayNameNL,
 } from '../date.js'
 
 describe('getLocalDateKey', () => {
@@ -47,5 +48,26 @@ describe('daysBetweenKeys', () => {
     // hours long, which naive millisecond division rounds wrong.
     expect(daysBetweenKeys('2026-10-24', '2026-10-26')).toBe(2)
     expect(daysBetweenKeys('2026-03-28', '2026-03-30')).toBe(2)
+  })
+})
+
+describe('relativeDayNameNL', () => {
+  const now = new Date(2026, 8, 18, 9, 0)
+
+  it('names today and yesterday', () => {
+    expect(relativeDayNameNL('2026-09-18', now)).toBe('vandaag')
+    expect(relativeDayNameNL('2026-09-17', now)).toBe('gisteren')
+  })
+
+  it('says nothing for anything further back', () => {
+    // Beyond two days the weekday is ambiguous — "donderdag" is both
+    // yesterday and a week ago — so the date itself has to carry it.
+    expect(relativeDayNameNL('2026-09-16', now)).toBeNull()
+    expect(relativeDayNameNL('2026-09-11', now)).toBeNull()
+  })
+
+  it('crosses a month boundary the way the calendar does', () => {
+    const firstOfOctober = new Date(2026, 9, 1, 9, 0)
+    expect(relativeDayNameNL('2026-09-30', firstOfOctober)).toBe('gisteren')
   })
 })

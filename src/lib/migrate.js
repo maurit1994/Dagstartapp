@@ -30,9 +30,15 @@
  * v5 -> v6: a day gained an optional `movement` block — sport sessions and
  * whether the physio exercises were done. Purely additive; old days get
  * `movement: null`.
+ *
+ * v6 -> v7: a sport session gained `label`, the typed name for an "Anders"
+ * session. Additive: every session stored before this gets `label: ''`, which
+ * is the honest value — the name was never asked for. The label is cleared
+ * for any type other than "Anders", so changing the category cannot leave a
+ * name behind that contradicts it.
  */
 
-export const CURRENT_SCHEMA_VERSION = 6
+export const CURRENT_SCHEMA_VERSION = 7
 
 /** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
@@ -47,6 +53,9 @@ const DURATIONS = ['< 30 min', '30–60 min', '60+ min']
 const INTENSITIES = ['Laag', 'Medium', 'Hoog']
 const PHYSIO_VALUES = ['done', 'partly', 'missed']
 const MAX_SESSIONS = 4
+// Deliberately a local copy, like SPORT_TYPES above: what migrate.js accepts
+// must not shift because the UI changed its mind about a limit.
+const MAX_SPORT_LABEL = 40
 const FIRST_THING_VALUES = ['Telefoon', 'Daglicht', 'Bewegen', 'Anders']
 const QUESTION_IDS = [
   'goed',
@@ -189,12 +198,19 @@ function migrateMovement(movement) {
     .slice(0, MAX_SESSIONS)
     .map((s) => ({
       type: s.type,
+      // Only "Anders" carries a name. A label on any other type would
+      // contradict the category it sits next to, so it is dropped rather
+      // than kept and quietly ignored.
+      label:
+        s.type === 'Anders' && typeof s.label === 'string'
+          ? s.label.trim().slice(0, MAX_SPORT_LABEL)
+          : '',
       duration: DURATIONS.includes(s.duration) ? s.duration : null,
       intensity: INTENSITIES.includes(s.intensity) ? s.intensity : null,
     }))
 
   if (sports.some((s) => s.type === 'Geen')) {
-    sports = [{ type: 'Geen', duration: null, intensity: null }]
+    sports = [{ type: 'Geen', label: '', duration: null, intensity: null }]
   }
 
   const physio = PHYSIO_VALUES.includes(movement.physio) ? movement.physio : null

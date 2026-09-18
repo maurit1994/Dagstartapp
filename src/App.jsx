@@ -39,6 +39,12 @@ export default function App() {
   const [dataVersion, setDataVersion] = useState(0)
   const [showNag, setShowNag] = useState(() => shouldRemindToExport())
   const [viewDay, setViewDay] = useState('today')
+  // Which of the last seven days the Beweging tab is logging into, as an
+  // offset rather than a date key: kept up here so saving — which bumps
+  // dataVersion and remounts the tab — does not snap you back to today
+  // halfway through filling in Saturday. An offset also survives midnight,
+  // where a stored key would quietly point at the wrong day.
+  const [movementDay, setMovementDay] = useState(0)
   // Locked only for this page load. There is no session token: closing the app
   // and reopening asks again, which is the whole point of a courtesy lock.
   const [lock, setLock] = useState(() => getMeta().lock ?? null)
@@ -147,7 +153,12 @@ export default function App() {
               </div>
             )}
             {activeTab === 'beweging' && (
-              <Movement key={dataVersion} onSaved={refresh} />
+              <Movement
+                key={`${dataVersion}-${movementDay}`}
+                dayOffset={movementDay}
+                onSelectDay={setMovementDay}
+                onSaved={refresh}
+              />
             )}
             {activeTab === 'gedachten' && <Thoughts key={dataVersion} />}
             {activeTab === 'historie' && <History key={dataVersion} />}

@@ -219,22 +219,43 @@ fields do not, and that overview is the reason to keep logging at all.
 
 Options are VERBATIM from the previous app, for the same reason as the
 Dagstart questions: renaming a category makes the old and new records
-incomparable.
+incomparable. The fixed list therefore never grows — `"Anders"` carries a
+typed `label` instead, and that name is what the tallies count, via
+`sessionName()`. Everything that counts or displays a session goes through
+that function, so "Bouldern ×14" appears rather than a useless "Anders ×14",
+while an unnamed `Anders` from before v7 still falls back to `"Anders"` and
+never vanishes from the tally. The label is cleared whenever the type moves
+away from `Anders`, in the form AND in `migrateMovement`: a session must
+never read "Gym" with "Bouldern" sitting beside it.
 
 `"Geen"` is a sport type meaning "I did not exercise today" — an ANSWER, not
 an absence, so a block holding only it is kept and counts as a logged day. It
 is exclusive: `migrateMovement` collapses the list to it, because "no sport,
 and also an hour of running" cannot both be true.
 
-**The Vandaag/Gisteren toggle writes to that day's OWN entry** rather than
-storing a marker on the session. A session logged Tuesday that happened Monday
-night belongs to Monday; every later question about "how many days did I
-train" then needs no special handling.
+**The day is chosen in the week strip, which is why that strip sits ABOVE the
+log.** Exercise gets logged late — you remember on Tuesday that you swam on
+Saturday — so any of the last 7 days can be filled in, not just today and
+yesterday. The strip already says which days are blank, so tapping the blank
+one you mean is the shortest route from noticing a gap to closing it, and it
+keeps ONE day control on the screen instead of two (the Vandaag tab's
+`DaySwitcher` is not used here). Whichever day is selected, the log writes to
+that day's OWN entry rather than storing a marker on the session: a session
+logged Tuesday that happened Saturday night belongs to Saturday, and every
+later question about "how many days did I train" then needs no special
+handling.
+
+The selected day lives in `App.jsx` as an OFFSET, not a date key, for two
+reasons: saving bumps `dataVersion` and remounts the tab, which would
+otherwise snap you back to today halfway through filling in Saturday (the
+same remount hazard as everywhere else); and an offset re-derives correctly
+across midnight, where a stored key would quietly point at the wrong day.
 
 The week is a rolling 7 days including today, matching `daysInWindow` — a
 calendar week makes Monday morning look like failure every single week. A
 missed physio day is never coloured as a failure in the strip; that is the
-punishment this app exists to avoid.
+punishment this app exists to avoid. The selection ring sits OUTSIDE the box
+so the fill keeps saying how the day went, not where you are.
 
 ## Nothing here may punish a missed day
 
@@ -247,7 +268,8 @@ encouragement — every one states a fact.
   tells you the fortnight before the gap no longer counts, which is where
   people stop. `longestStreak` sits beside it so a broken run cannot erase
   that the run happened.
-- **`DaySwitcher.jsx`** puts Gisteren beside Vandaag on the daily screens.
+- **`DaySwitcher.jsx`** puts Gisteren beside Vandaag on the Vandaag tab
+  (Beweging picks its day from the week strip instead — see above).
   Yesterday is EDITABLE, not merely fillable-when-empty: you remember the
   evening at breakfast, or you tapped the wrong face. Every Vandaag card
   takes `now` as a prop and derives its own date key from it, so App only

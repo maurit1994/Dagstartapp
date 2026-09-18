@@ -1,39 +1,60 @@
 import Screen from '../../components/Screen.jsx'
 import MovementLog from './MovementLog.jsx'
-import { NO_SPORT, PHYSIO_OUTCOMES, realSessions, topTypes, weekStats } from '../../lib/movement.js'
+import {
+  NO_SPORT,
+  PHYSIO_OUTCOMES,
+  realSessions,
+  topTypes,
+  weekStats,
+} from '../../lib/movement.js'
 import { getAllCheckins } from '../../lib/storage.js'
-import { getLocalDateKey } from '../../lib/date.js'
+import { formatDateKeyNL, getDateKeyDaysAgo, getLocalDateKey } from '../../lib/date.js'
 
 const DAY_LETTERS = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za']
 
 /**
- * The Beweging tab: log a session, then see the week.
+ * The Beweging tab: pick a day from the week, log into it, then see the week.
  *
  * The week overview is the reason to keep logging at all — without it this is
  * data entry with no return. It is also the thing a physio actually asks for.
+ *
+ * It doubles as the DAY PICKER, which is why it sits above the log rather
+ * than below it. Exercise gets logged late: you remember on Tuesday that you
+ * swam on Saturday. The strip already says which days are blank, so tapping
+ * the blank one you mean is the shortest route from noticing a gap to filling
+ * it — and it means the screen has one day control, not two.
  */
-export default function Movement({ onSaved, now = new Date() }) {
+export default function Movement({ onSaved, dayOffset = 0, onSelectDay, now = new Date() }) {
   const checkins = getAllCheckins()
   const today = getLocalDateKey(now)
   const stats = weekStats(checkins, 7, today)
+  const selectedKey = getDateKeyDaysAgo(dayOffset, now)
 
   return (
     <>
-      <MovementLog onSaved={onSaved} now={now} />
-      <WeekOverview checkins={checkins} stats={stats} />
+      <WeekOverview
+        checkins={checkins}
+        stats={stats}
+        selectedKey={selectedKey}
+        onSelectDay={onSelectDay}
+      />
+      <MovementLog onSaved={onSaved} dateKey={selectedKey} now={now} />
       <PhysioNotes checkins={checkins} stats={stats} />
     </>
   )
 }
 
-function WeekOverview({ checkins, stats }) {
+function WeekOverview({ checkins, stats, selectedKey, onSelectDay }) {
   const types = topTypes(stats)
 
   return (
     <Screen title="Deze week">
       {/* Oldest on the left, so the row reads the way a week does. */}
       <ol className="flex gap-1.5">
-        {[...stats.keys].reverse().map((key) => {
+        {[...stats.keys].reverse().map((key, indexFromOldest) => {
+          // stats.keys runs newest-first; reversed, the last item is today.
+          const offset = stats.keys.length - 1 - indexFromOldest
+          const isSelected = key === selectedKey
           const movement = checkins[key]?.movement
           const sessions = realSessions(movement)
           const rested = movement?.sports?.some((s) => s.type === NO_SPORT)
@@ -50,20 +71,31 @@ function WeekOverview({ checkins, stats }) {
 
           return (
             <li key={key} className="flex-1">
-              <div
+              <button
+                type="button"
+                onClick={() => onSelectDay?.(offset)}
+                aria-pressed={isSelected}
+                aria-label={`${formatDateKeyNL(key)}: ${label}`}
                 title={label}
-                aria-label={`${DAY_LETTERS[date.getDay()]} ${d}: ${label}`}
-                className={`flex h-12 items-center justify-center rounded-lg border text-sm ${
+                className={`flex h-12 w-full items-center justify-center rounded-lg border text-sm transition ${
                   state === 'sport'
                     ? 'border-anker-done bg-anker-done/25 text-anker-text'
                     : state === 'rest'
                       ? 'border-anker-border bg-anker-raised text-anker-muted'
                       : 'border-dashed border-anker-border text-anker-muted/50'
+                } ${
+                  // The ring says where you ARE, not how the day went — so it
+                  // sits outside the box and leaves the fill to say that.
+                  isSelected ? 'ring-2 ring-anker-accent ring-offset-2 ring-offset-anker-surface' : ''
                 }`}
               >
                 {state === 'sport' ? sessions.length : state === 'rest' ? '–' : ''}
-              </div>
-              <p className="mt-1 text-center text-[10px] text-anker-muted">
+              </button>
+              <p
+                className={`mt-1 text-center text-[10px] ${
+                  isSelected ? 'text-anker-text' : 'text-anker-muted'
+                }`}
+              >
                 {DAY_LETTERS[date.getDay()]}
               </p>
             </li>
@@ -95,12 +127,12 @@ function WeekOverview({ checkins, stats }) {
 
       {types.length > 0 && (
         <ul className="mt-4 flex flex-wrap gap-1.5 border-t border-anker-border pt-3">
-          {types.map(([type, count]) => (
+          {types.map(([name, count]) => (
             <li
-              key={type}
+              key={name}
               className="rounded-full border border-anker-border px-2.5 py-0.5 text-xs text-anker-muted"
             >
-              {type} ×{count}
+              {name} ×{count}
             </li>
           ))}
         </ul>

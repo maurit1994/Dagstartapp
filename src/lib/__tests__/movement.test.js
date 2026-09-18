@@ -1,11 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { realSessions, topTypes, weekStats } from '../movement.js'
+import { realSessions, sessionName, topTypes, weekStats } from '../movement.js'
 
 const TODAY = '2026-09-18'
 const move = (sports = [], physio = null) => ({ movement: { sports, physio, physioNote: '' } })
 const gym = { type: 'Gym', duration: '30–60 min', intensity: 'Medium' }
 const walk = { type: 'Wandelen', duration: '< 30 min', intensity: 'Laag' }
 const none = { type: 'Geen', duration: null, intensity: null }
+
+describe('sessionName', () => {
+  it('uses the typed name for "Anders"', () => {
+    expect(sessionName({ type: 'Anders', label: 'Bouldern' })).toBe('Bouldern')
+  })
+
+  it('falls back to "Anders" when no name was typed', () => {
+    // Every session stored before v7 looks like this. It must still count as
+    // something rather than disappearing from the tally.
+    expect(sessionName({ type: 'Anders', label: '' })).toBe('Anders')
+    expect(sessionName({ type: 'Anders' })).toBe('Anders')
+    expect(sessionName({ type: 'Anders', label: '   ' })).toBe('Anders')
+  })
+
+  it('ignores a name on a type that already has one', () => {
+    expect(sessionName({ type: 'Gym', label: 'Bouldern' })).toBe('Gym')
+  })
+
+  it('survives nonsense', () => {
+    expect(sessionName(null)).toBe('')
+    expect(sessionName({})).toBe('')
+  })
+})
 
 describe('realSessions', () => {
   it('ignores an explicit "Geen"', () => {
@@ -55,6 +78,26 @@ describe('weekStats', () => {
     )
     expect(s.byType).toEqual({ Gym: 2, Wandelen: 1 })
     expect(topTypes(s)[0]).toEqual(['Gym', 2])
+  })
+
+  it('tallies a named "Anders" under its own name, not under "Anders"', () => {
+    // The whole point of typing the name: a year of "Anders ×14" says
+    // nothing, while "Bouldern ×14" is a fact about your year.
+    const bouldern = { type: 'Anders', label: 'Bouldern', duration: null, intensity: null }
+    const klimmen = { type: 'Anders', label: 'Klimmen', duration: null, intensity: null }
+    const s = weekStats(
+      { '2026-09-18': move([bouldern, klimmen]), '2026-09-17': move([bouldern]) },
+      7,
+      TODAY,
+    )
+    expect(s.byType).toEqual({ Bouldern: 2, Klimmen: 1 })
+    expect(topTypes(s)[0]).toEqual(['Bouldern', 2])
+  })
+
+  it('still counts an unnamed "Anders" from before v7', () => {
+    const s = weekStats({ '2026-09-18': move([{ type: 'Anders', label: '' }]) }, 7, TODAY)
+    expect(s.byType).toEqual({ Anders: 1 })
+    expect(s.sessions).toBe(1)
   })
 
   it('counts the physio, separating done from partly', () => {

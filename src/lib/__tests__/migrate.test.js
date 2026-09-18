@@ -175,6 +175,42 @@ describe('migrateExport', () => {
     expect(out.intentions).toEqual({})
   })
 
+  it('imports a v6 export — sessions gain an empty label', () => {
+    // The version before "Anders" could be named. Nothing about that export
+    // knows the field exists, and it must still come back whole.
+    const out = migrateExport({
+      app: 'anker',
+      schemaVersion: 6,
+      checkins: {
+        '2026-09-15': {
+          mental: 4,
+          body: [],
+          note: 'v6',
+          movement: {
+            sports: [
+              { type: 'Anders', duration: '30–60 min', intensity: 'Hoog' },
+              { type: 'Gym', duration: '< 30 min', intensity: 'Laag' },
+            ],
+            physio: 'partly',
+            physioNote: 'knie',
+          },
+        },
+      },
+    })
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(out.checkins['2026-09-15'].movement).toEqual({
+      sports: [
+        { type: 'Anders', label: '', duration: '30–60 min', intensity: 'Hoog' },
+        { type: 'Gym', label: '', duration: '< 30 min', intensity: 'Laag' },
+      ],
+      physio: 'partly',
+      physioNote: 'knie',
+    })
+    // Everything else on that day survived the upgrade untouched.
+    expect(out.checkins['2026-09-15'].mental).toBe(4)
+    expect(out.checkins['2026-09-15'].note).toBe('v6')
+  })
+
   it('refuses a file that is not an Anker backup', () => {
     expect(() => migrateExport({ app: 'anders' })).toThrow(/geen Anker-backup/)
     expect(() => migrateExport(null)).toThrow(/geen Anker-backup/)
@@ -413,7 +449,7 @@ describe('migrateCheckin: the movement block (v5 -> v6)', () => {
       },
     })
     expect(out.movement).toEqual({
-      sports: [{ type: 'Gym', duration: '30–60 min', intensity: 'Medium' }],
+      sports: [{ type: 'Gym', label: '', duration: '30–60 min', intensity: 'Medium' }],
       physio: 'done',
       physioNote: 'heup voelde stug',
     })
@@ -427,7 +463,7 @@ describe('migrateCheckin: the movement block (v5 -> v6)', () => {
       },
     })
     expect(out.movement.sports).toEqual([
-      { type: 'Yoga', duration: null, intensity: null },
+      { type: 'Yoga', label: '', duration: null, intensity: null },
     ])
   })
 
@@ -438,8 +474,54 @@ describe('migrateCheckin: the movement block (v5 -> v6)', () => {
       movement: { sports: [{ type: 'Hardlopen', duration: '60+ min' }, { type: 'Geen' }] },
     })
     expect(out.movement.sports).toEqual([
-      { type: 'Geen', duration: null, intensity: null },
+      { type: 'Geen', label: '', duration: null, intensity: null },
     ])
+  })
+
+  it('gives every session stored before v7 an empty label', () => {
+    // The name was never asked for, so '' is the honest value — not a guess
+    // at what "Anders" meant that day.
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Anders', duration: '< 30 min' }] },
+    })
+    expect(out.movement.sports).toEqual([
+      { type: 'Anders', label: '', duration: '< 30 min', intensity: null },
+    ])
+  })
+
+  it('keeps the typed name on an "Anders" session', () => {
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Anders', label: '  Bouldern  ' }] },
+    })
+    expect(out.movement.sports[0].label).toBe('Bouldern')
+  })
+
+  it('drops a label sitting on any other type', () => {
+    // A name next to "Gym" contradicts the category it sits beside; keeping
+    // it would mean two answers to one question.
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Gym', label: 'Bouldern' }] },
+    })
+    expect(out.movement.sports[0].label).toBe('')
+  })
+
+  it('truncates a label rather than storing something unbounded', () => {
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Anders', label: 'x'.repeat(200) }] },
+    })
+    expect(out.movement.sports[0].label).toHaveLength(40)
+  })
+
+  it('ignores a label that is not a string', () => {
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Anders', label: { naam: 'Bouldern' } }] },
+    })
+    expect(out.movement.sports[0].label).toBe('')
   })
 
   it('keeps a block that only says "Geen" — that is an answer', () => {
