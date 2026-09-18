@@ -22,6 +22,7 @@ describe('migrateCheckin: v1 -> v2', () => {
       body: [{ region: 'hip_l', pain: 4, tension: 0 }],
       note: 'hoi',
       evening: null,
+      movement: null,
       updatedAt: 123,
     })
   })
@@ -32,6 +33,7 @@ describe('migrateCheckin: v1 -> v2', () => {
       mode: 'full',
       answers: { bereiken: 'huisarts bellen' },
       sleep: null,
+      movement: null,
       body: [{ region: 'neck', pain: 1, tension: 5 }],
       note: '',
       evening: null,
@@ -139,6 +141,7 @@ describe('migrateCheckin: the evening block (v2 -> v3)', () => {
       mode: 'lite',
       answers: {},
       sleep: null,
+      movement: null,
       evening: null,
     })
   })
@@ -385,5 +388,90 @@ describe('migrateCheckin: the sleep block (v4 -> v5)', () => {
       sleep: { subjectief: 3, bedtijd: '1:05', garmin: { gedragen: true, slaapscore: 80 } },
     })
     expect(migrateCheckin(once).sleep).toEqual(once.sleep)
+  })
+})
+
+describe('migrateCheckin: the movement block (v5 -> v6)', () => {
+  it('gives a day with no movement an explicit null', () => {
+    expect(migrateCheckin({ body: [] }).movement).toBeNull()
+  })
+
+  it('drops a movement block where nothing was answered', () => {
+    expect(
+      migrateCheckin({ body: [], movement: { sports: [], physio: null, physioNote: '' } })
+        .movement,
+    ).toBeNull()
+  })
+
+  it('keeps sessions with their duration and intensity', () => {
+    const out = migrateCheckin({
+      body: [],
+      movement: {
+        sports: [{ type: 'Gym', duration: '30–60 min', intensity: 'Medium' }],
+        physio: 'done',
+        physioNote: 'heup voelde stug',
+      },
+    })
+    expect(out.movement).toEqual({
+      sports: [{ type: 'Gym', duration: '30–60 min', intensity: 'Medium' }],
+      physio: 'done',
+      physioNote: 'heup voelde stug',
+    })
+  })
+
+  it('rejects a sport, duration or intensity it does not know', () => {
+    const out = migrateCheckin({
+      body: [],
+      movement: {
+        sports: [{ type: 'Curling', duration: 'uren', intensity: 'Extreem' }, { type: 'Yoga', duration: 'uren', intensity: 'Extreem' }],
+      },
+    })
+    expect(out.movement.sports).toEqual([
+      { type: 'Yoga', duration: null, intensity: null },
+    ])
+  })
+
+  it('collapses to "Geen" when that is among the answers', () => {
+    // "No sport, and also an hour of running" is not a state that can be true.
+    const out = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Hardlopen', duration: '60+ min' }, { type: 'Geen' }] },
+    })
+    expect(out.movement.sports).toEqual([
+      { type: 'Geen', duration: null, intensity: null },
+    ])
+  })
+
+  it('keeps a block that only says "Geen" — that is an answer', () => {
+    expect(
+      migrateCheckin({ body: [], movement: { sports: [{ type: 'Geen' }] } }).movement,
+    ).not.toBeNull()
+  })
+
+  it('keeps a block that only says the physio was done', () => {
+    expect(
+      migrateCheckin({ body: [], movement: { physio: 'partly' } }).movement,
+    ).not.toBeNull()
+  })
+
+  it('caps the number of sessions rather than storing an unbounded list', () => {
+    const many = Array.from({ length: 9 }, () => ({ type: 'Wandelen' }))
+    expect(migrateCheckin({ body: [], movement: { sports: many } }).movement.sports)
+      .toHaveLength(4)
+  })
+
+  it('rejects a physio value outside done/partly/missed', () => {
+    expect(
+      migrateCheckin({ body: [], movement: { physio: 'bijna', physioNote: 'x' } })
+        .movement.physio,
+    ).toBeNull()
+  })
+
+  it('is safe to run twice', () => {
+    const once = migrateCheckin({
+      body: [],
+      movement: { sports: [{ type: 'Yoga', duration: '< 30 min' }], physio: 'done' },
+    })
+    expect(migrateCheckin(once).movement).toEqual(once.movement)
   })
 })

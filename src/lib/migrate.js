@@ -26,15 +26,27 @@
  * v4 -> v5: a day gained an optional `sleep` block — how the night felt, bed
  * and wake times, a note, and the Garmin readings transcribed from the watch.
  * Purely additive: old days get `sleep: null`, which is true of them.
+ *
+ * v5 -> v6: a day gained an optional `movement` block — sport sessions and
+ * whether the physio exercises were done. Purely additive; old days get
+ * `movement: null`.
  */
 
-export const CURRENT_SCHEMA_VERSION = 5
+export const CURRENT_SCHEMA_VERSION = 6
 
 /** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
 
 const MODES = ['lite', 'full']
 const HRV_STATUSES = ['Goed', 'Matig', 'Slecht']
+const SPORT_TYPES = [
+  'Gym', 'Hardlopen', 'Wandelen', 'Fietsen', 'Pilates', 'Yoga', 'Zwemmen',
+  'Anders', 'Geen',
+]
+const DURATIONS = ['< 30 min', '30–60 min', '60+ min']
+const INTENSITIES = ['Laag', 'Medium', 'Hoog']
+const PHYSIO_VALUES = ['done', 'partly', 'missed']
+const MAX_SESSIONS = 4
 const FIRST_THING_VALUES = ['Telefoon', 'Daglicht', 'Bewegen', 'Anders']
 const QUESTION_IDS = [
   'goed',
@@ -87,6 +99,7 @@ export function migrateCheckin(entry) {
     mode: MODES.includes(entry.mode) ? entry.mode : 'lite',
     answers: cleanAnswers(entry.answers),
     sleep: migrateSleep(entry.sleep),
+    movement: migrateMovement(entry.movement),
     evening: migrateEvening(entry.evening),
     body: body
       .filter((b) => b && typeof b.region === 'string')
@@ -157,6 +170,40 @@ function migrateSleep(sleep) {
   if (!answeredSomething) return null
 
   return { subjectief, bedtijd, wakkertijd, notitie, garmin }
+}
+
+/**
+ * Normalise the optional movement block.
+ *
+ * "Geen" is an answer meaning "I did not exercise", not an absence — so a
+ * block holding only that is kept. It is also exclusive: if it appears at
+ * all, it collapses to the single entry, because "no sport, and also an hour
+ * of running" is not a state that can be true.
+ */
+function migrateMovement(movement) {
+  if (!movement || typeof movement !== 'object') return null
+
+  const incoming = Array.isArray(movement.sports) ? movement.sports : []
+  let sports = incoming
+    .filter((s) => s && SPORT_TYPES.includes(s.type))
+    .slice(0, MAX_SESSIONS)
+    .map((s) => ({
+      type: s.type,
+      duration: DURATIONS.includes(s.duration) ? s.duration : null,
+      intensity: INTENSITIES.includes(s.intensity) ? s.intensity : null,
+    }))
+
+  if (sports.some((s) => s.type === 'Geen')) {
+    sports = [{ type: 'Geen', duration: null, intensity: null }]
+  }
+
+  const physio = PHYSIO_VALUES.includes(movement.physio) ? movement.physio : null
+  const physioNote =
+    typeof movement.physioNote === 'string' ? movement.physioNote : ''
+
+  if (sports.length === 0 && physio === null && physioNote === '') return null
+
+  return { sports, physio, physioNote }
 }
 
 /**

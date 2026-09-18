@@ -9,6 +9,7 @@ import BodyCard from './modules/checkin/BodyCard.jsx'
 import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
 import History from './modules/history/History.jsx'
+import Movement from './modules/movement/Movement.jsx'
 import Settings from './modules/settings/Settings.jsx'
 import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
@@ -21,6 +22,7 @@ import { getCheckin, getMeta } from './lib/storage.js'
 // `label` and `icon` are what the user sees (UI language: Dutch).
 const TABS = [
   { id: 'vandaag', label: 'Vandaag', icon: '☀️' },
+  { id: 'beweging', label: 'Beweging', icon: '🏃' },
   { id: 'gedachten', label: 'Gedachten', icon: '💭' },
   { id: 'historie', label: 'Historie', icon: '📈' },
 ]
@@ -117,6 +119,9 @@ export default function App() {
                   <Extras onSaved={refresh} />
                 )}
               </div>
+            )}
+            {activeTab === 'beweging' && (
+              <Movement key={dataVersion} onSaved={refresh} />
             )}
             {activeTab === 'gedachten' && <Thoughts key={dataVersion} />}
             {activeTab === 'historie' && <History key={dataVersion} />}
