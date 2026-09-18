@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import TabBar from './components/TabBar.jsx'
+import DaySwitcher from './components/DaySwitcher.jsx'
 import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
 import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
-import BackfillCard from './modules/checkin/BackfillCard.jsx'
 import BodyCard from './modules/checkin/BodyCard.jsx'
 import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
@@ -15,7 +15,7 @@ import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
 import { shouldRemindToExport } from './lib/backup.js'
 import { isDagstartDone } from './lib/dagstart.js'
-import { getLocalDateKey } from './lib/date.js'
+import { getDateKeyDaysAgo, getLocalDateKey } from './lib/date.js'
 import { getCheckin, getMeta } from './lib/storage.js'
 
 // The app shell's three tabs. `id` drives which module renders below;
@@ -38,6 +38,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
   const [showNag, setShowNag] = useState(() => shouldRemindToExport())
+  const [viewDay, setViewDay] = useState('today')
   // Locked only for this page load. There is no session token: closing the app
   // and reopening asks again, which is the whole point of a courtesy lock.
   const [lock, setLock] = useState(() => getMeta().lock ?? null)
@@ -54,6 +55,19 @@ export default function App() {
     setShowNag(shouldRemindToExport())
     setLock(getMeta().lock ?? null)
   }
+
+  // The moment the chosen day is being viewed from. For a past day that
+  // moment is its END — otherwise the evening card would judge yesterday by
+  // this morning's clock and stay shut on a day that is long over.
+  const viewNow = (() => {
+    if (viewDay === 'today') return new Date()
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    yesterday.setHours(23, 59, 0, 0)
+    return yesterday
+  })()
+  const viewKey = getLocalDateKey(viewNow)
+  const yesterdayEmpty = !isDagstartDone(getCheckin(getDateKeyDaysAgo(1)))
 
   if (lock && !isUnlocked) {
     return <LockScreen lock={lock} onUnlock={() => setIsUnlocked(true)} />
@@ -102,21 +116,33 @@ export default function App() {
             )}
 
             {activeTab === 'vandaag' && (
-              <div key={dataVersion} className="space-y-4">
-                <Intention />
-                <Checkin onSaved={refresh} />
+              <div key={`${dataVersion}-${viewDay}`} className="space-y-4">
+                {/* Every card below works on whichever day is selected. */}
+                <DaySwitcher
+                  value={viewDay}
+                  onChange={setViewDay}
+                  dateKey={viewKey}
+                  hint={
+                    viewDay === 'today' && yesterdayEmpty
+                      ? 'gisteren is leeg gebleven'
+                      : undefined
+                  }
+                />
+                <Intention now={viewNow} />
+                <Checkin
+                  now={viewNow}
+                  label={viewDay === 'today' ? 'Dagstart' : 'Dagstart gisteren'}
+                  onSaved={refresh}
+                />
                 {/* Decoupled from the Dagstart on purpose: scanning yourself
                     for pain is a poor way to open a day. Available all day,
                     asked for by nobody. */}
-                <BodyCard onSaved={refresh} />
-                {/* Only when yesterday was missed, and gone the moment it is
-                    filled. A way back, not a debt collector. */}
-                <BackfillCard onSaved={refresh} />
-                <EveningCheckin onSaved={refresh} />
+                <BodyCard now={viewNow} onSaved={refresh} />
+                <EveningCheckin now={viewNow} onSaved={refresh} />
                 {/* Below everything, and only once the flow is behind you:
                     the optional extras must never compete with the routine. */}
-                {isDagstartDone(getCheckin(getLocalDateKey())) && (
-                  <Extras onSaved={refresh} />
+                {isDagstartDone(getCheckin(viewKey)) && (
+                  <Extras now={viewNow} onSaved={refresh} />
                 )}
               </div>
             )}

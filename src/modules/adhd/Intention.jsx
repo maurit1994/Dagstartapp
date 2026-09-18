@@ -1,5 +1,6 @@
 import Screen from '../../components/Screen.jsx'
-import { getTodayIntention } from '../../lib/storage.js'
+import { getIntention } from '../../lib/storage.js'
+import { getLocalDateKey } from '../../lib/date.js'
 
 /**
  * Today's priority, kept visible at the top of the Vandaag screen.
@@ -9,8 +10,8 @@ import { getTodayIntention } from '../../lib/storage.js'
  * simply to stay in front of you all day — an intention you have to go
  * looking for is one you have already lost.
  */
-export default function Intention() {
-  const priority = getTodayIntention()
+export default function Intention({ now = new Date() }) {
+  const priority = getIntention(getLocalDateKey(now))
 
   // Nothing to show until the Dagstart has been answered. A card telling you
   // to fill in the form directly below it is noise, and on the body step it
