@@ -48,6 +48,13 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
   // day's intention. Reading today's would quietly ask about the wrong one.
   const priority = getIntention(dateKey)
   const entry = getCheckin(dateKey)
+  // What this morning's `onrustig` question caught, shown back here and
+  // nowhere else. Its hint promises "geef het een plek" and for a long time
+  // there was none: you wrote a worry down and it was never surfaced again,
+  // which is how parking a worry turns into rehearsing it. Read-only on
+  // purpose — the point is a designated moment to look at it once more, not
+  // another field to fill in.
+  const onrustig = entry?.answers?.onrustig?.trim() ?? ''
   const stored = entry?.evening ?? null
   const morningDone = isDagstartDone(entry)
 
@@ -120,6 +127,15 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
         value={form.focus}
         onSelect={(n) => set('focus', n)}
       />
+
+      {onrustig && (
+        <div className="mt-5 rounded-xl border border-anker-border bg-anker-bg p-3">
+          <p className="text-sm text-anker-muted">Vanochtend hield dit je bezig</p>
+          <p className="mt-1 whitespace-pre-wrap text-base text-anker-text">
+            “{onrustig}”
+          </p>
+        </div>
+      )}
 
       <div className="mt-5">
         <p className="text-sm text-anker-muted">Prioriteit behaald?</p>

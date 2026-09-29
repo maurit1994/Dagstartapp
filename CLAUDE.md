@@ -84,9 +84,45 @@ the body to reach them. Tap and score must stay on ONE screen.
 (`maurit1994/ds-k9m4x2`) — these are questions they answered for months, and
 rephrasing them quietly changes what gets answered. Do not "improve" them.
 
-Two modes, Lite (3) and Full (6). Full is a strict superset AND begins with
-exactly Lite's three, so switching mid-flow keeps your place and loses
-nothing. Lite is the default every day and is never remembered.
+**That freeze is on the WORDS, not on how often each one is asked.** Cadence
+is a separate decision and lives in the same file: every question declares
+either a `tier` (asked daily, at that tier) or a `weekday` (asked on that day
+only, whatever the mode). A test asserts each question has exactly one of the
+two, and that every question is reachable — one nobody is ever asked is worse
+than a deleted one, because it sits in the file looking answered-for.
+
+Two modes, Lite (2) and Full (5). Full is a strict superset AND begins with
+exactly Lite's, so switching mid-flow keeps your place and loses nothing
+(the step you are on does not move; only the total grows). Lite is the
+default every day and is never remembered.
+
+### Why the daily set is smaller than the old app's
+
+Six of seven questions asked for free text. Free recall is the most expensive
+thing you can ask for at the hour there is least of it, while the scales
+beside them cost one tap — the balance was backwards. The user reported the
+questions "felt wrong" and stopped filling them in; this is what that was.
+
+- **`goed`** ("Wat ging er GISTEREN goed?") is the hardest retrieval in the
+  set and it sat in the SHORT morning set. Now Full only.
+- **`dankbaar`** is the one question the evidence says to ask less often, not
+  more: counting blessings once a week beat three times a week in
+  Lyubomirsky's frequency work, with the more frequent group doing worse.
+  Weekly, on Sunday. Weekly questions are asked in BOTH modes, or the ones
+  meant to be rare would also be the ones most likely never asked at all.
+- **Lite is two**, not three. `bereiken` is load-bearing (the evening quotes
+  it, Vandaag shows it all day). `zin` stays beside it because it is the only
+  positively-framed question in the short set, and a bad morning opening with
+  nothing but "what must I achieve" is a bleak way in.
+- Never put two weekly questions on the same day — there is a test.
+
+**`onrustig` is asked in the morning and shown again in the evening.** Its
+hint promises "geef het een plek" and for a long time there was none: the
+answer was stored and never surfaced again, which is how parking a worry
+turns into rehearsing it. `EveningCheckin` renders it read-only above the
+priority. Read-only on purpose — the point is a designated moment to look at
+it once more, not another field. Do not delete that block without either
+closing the loop some other way or dropping the question.
 
 **The length is never chosen up front.** Lite simply starts, and the three
 extra questions are offered once the short set is behind you. A fork at the
