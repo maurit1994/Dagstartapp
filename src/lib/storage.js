@@ -27,6 +27,12 @@ import {
   migrateCheckins,
   migrateExport,
 } from './migrate.js'
+import {
+  HORIZON_VALUES,
+  MAX_ITEM_TEXT,
+  migrateLoadItem,
+  migrateLoadItems,
+} from './mentalload.js'
 
 export const STORAGE_PREFIX = 'anker_v1_'
 
@@ -34,6 +40,7 @@ export const KEYS = {
   checkins: `${STORAGE_PREFIX}checkins`,
   thoughts: `${STORAGE_PREFIX}thoughts`,
   intentions: `${STORAGE_PREFIX}intentions`,
+  load: `${STORAGE_PREFIX}load`,
   meta: `${STORAGE_PREFIX}meta`,
 }
 
@@ -192,6 +199,55 @@ export function deleteThought(id) {
   )
 }
 
+/* ---------------------------------------------------------- mental load */
+
+/**
+ * The things coming up that someone has to think about.
+ *
+ * A flat list beside the check-ins rather than a field on a day: an item is
+ * noticed on one day and still true three weeks later, so it does not belong
+ * to a date the way a mood score does.
+ */
+export function getLoadItems() {
+  return migrateLoadItems(readJSON(KEYS.load, []))
+}
+
+/** Note something coming up. Empty text is rejected. */
+export function addLoadItem(text, horizon = 'week') {
+  const trimmed = String(text ?? '').trim().slice(0, MAX_ITEM_TEXT)
+  if (!trimmed) return null
+
+  const item = {
+    id: makeId(),
+    text: trimmed,
+    horizon: HORIZON_VALUES.includes(horizon) ? horizon : 'week',
+    raised: false,
+    createdAt: Date.now(),
+    resolvedAt: null,
+  }
+  const all = getLoadItems()
+  all.push(item)
+  writeJSON(KEYS.load, all)
+  return item
+}
+
+/** Change one item — raising it, resolving it, or moving its horizon. */
+export function updateLoadItem(id, patch) {
+  const all = getLoadItems().map((item) =>
+    item.id === id ? migrateLoadItem({ ...item, ...patch }) ?? item : item,
+  )
+  writeJSON(KEYS.load, all)
+  return all
+}
+
+/** Remove one item outright. */
+export function deleteLoadItem(id) {
+  writeJSON(
+    KEYS.load,
+    getLoadItems().filter((item) => item.id !== id),
+  )
+}
+
 /* --------------------------------------------------------------- intentions */
 
 /**
@@ -247,6 +303,7 @@ export function exportAll() {
     // Kept for backwards compatibility: an older build of Anker reads this
     // key. Current builds derive it from the check-ins above.
     intentions: getAllIntentions(),
+    load: getLoadItems(),
     meta: getMeta(),
   }
 }
@@ -265,11 +322,13 @@ export function importAll(data, mode = 'merge') {
   const incomingCheckins = upgraded.checkins
   const incomingThoughts = upgraded.thoughts
   const incomingIntentions = upgraded.intentions
+  const incomingLoad = upgraded.load ?? []
 
   if (mode === 'replace') {
     writeJSON(KEYS.checkins, incomingCheckins)
     writeJSON(KEYS.thoughts, incomingThoughts)
     writeJSON(KEYS.intentions, incomingIntentions)
+    writeJSON(KEYS.load, incomingLoad)
     return {
       checkinsAdded: Object.keys(incomingCheckins).length,
       thoughtsAdded: incomingThoughts.length,
@@ -286,6 +345,18 @@ export function importAll(data, mode = 'merge') {
       checkinsAdded += 1
     }
   }
+
+  // Merge the load list by id, like thoughts: an item already here is left
+  // exactly as it is, so a restore can never un-raise something you raised.
+  const load = getLoadItems()
+  const knownLoad = new Set(load.map((item) => item.id))
+  for (const item of incomingLoad) {
+    if (!knownLoad.has(item.id)) {
+      load.push(item)
+      knownLoad.add(item.id)
+    }
+  }
+  writeJSON(KEYS.load, load)
 
   const thoughts = getThoughts()
   const seen = new Set(thoughts.map((t) => t.id))

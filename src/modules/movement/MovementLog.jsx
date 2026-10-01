@@ -1,32 +1,33 @@
 import { useState } from 'react'
 import Screen from '../../components/Screen.jsx'
 import Button from '../../components/Button.jsx'
-import DaySwitcher from '../../components/DaySwitcher.jsx'
 import {
   DURATIONS,
   INTENSITIES,
+  MAX_SPORT_LABEL,
   NO_SPORT,
+  OTHER_SPORT,
   PHYSIO_OUTCOMES,
   SPORT_TYPES,
 } from '../../lib/movement.js'
-import { getDateKeyDaysAgo, getLocalDateKey } from '../../lib/date.js'
+import { formatDateKeyNL, relativeDayNameNL } from '../../lib/date.js'
 import { getCheckin, saveCheckin } from '../../lib/storage.js'
 
 const MAX_SESSIONS = 4
 
 /**
- * Log what you did, for today or yesterday.
+ * Log what you did, for whichever day the week strip above has selected.
  *
- * The day toggle writes to that day's OWN entry rather than storing a flag —
- * a session logged on Tuesday morning that happened Monday night belongs to
- * Monday, and the record should say so. The previous app kept a
+ * The day is chosen there rather than here: the strip already shows which
+ * days are blank, and a second day control on the same screen would be two
+ * answers to one question. This card only ever writes to that day's OWN
+ * entry — a session logged on Tuesday that happened Saturday night belongs
+ * to Saturday, and the record should say so. The previous app kept a
  * gisteren/vandaag marker on the session instead, which made every later
  * question about "how many days did I train" need special handling.
  */
-export default function MovementLog({ onSaved, now = new Date() }) {
-  const [dayOffset, setDayOffset] = useState(0)
-  const dateKey = dayOffset === 0 ? getLocalDateKey(now) : getDateKeyDaysAgo(1, now)
-  const stored = getCheckin(dateKey)?.movement ?? null
+export default function MovementLog({ onSaved, dateKey, now = new Date() }) {
+  const relative = relativeDayNameNL(dateKey, now)
 
   // Keyed on the date so switching day reloads that day's answers.
   const [form, setForm] = useState(() => load(dateKey))
@@ -52,11 +53,17 @@ export default function MovementLog({ onSaved, now = new Date() }) {
   function setSport(index, key, value) {
     // "Geen" is exclusive: it means the day had no exercise at all.
     if (key === 'type' && value === NO_SPORT) {
-      setForm({ ...form, sports: [{ type: NO_SPORT, duration: null, intensity: null }] })
+      setForm({
+        ...form,
+        sports: [{ type: NO_SPORT, label: '', duration: null, intensity: null }],
+      })
       return
     }
     const next = [...form.sports]
     next[index] = { ...next[index], [key]: value }
+    // Only "Anders" carries a name. Moving to any other type drops it, so a
+    // session can never show "Gym" with "Bouldern" still typed beside it.
+    if (key === 'type' && value !== OTHER_SPORT) next[index].label = ''
     setForm({ ...form, sports: next })
   }
 
@@ -76,13 +83,13 @@ export default function MovementLog({ onSaved, now = new Date() }) {
 
   return (
     <Screen title="Wat heb je gedaan?">
-      {/* The shared switcher, not a copy of it: the Vandaag tab has the same
-          control, and two hand-rolled versions is how they drift apart. */}
-      <DaySwitcher
-        value={dayOffset === 0 ? 'today' : 'yesterday'}
-        onChange={(day) => setDayOffset(day === 'today' ? 0 : 1)}
-        dateKey={dateKey}
-      />
+      {/* Which day this card is writing into, spelled out. The strip above
+          shows only a weekday letter, and "do" is both yesterday and last
+          week. */}
+      <p className="text-sm text-anker-muted">
+        {relative ? `${relative} · ` : ''}
+        {formatDateKeyNL(dateKey)}
+      </p>
 
       <p className="mt-5 text-sm text-anker-muted">Sport</p>
       {form.sports.length === 0 && (
@@ -125,6 +132,27 @@ export default function MovementLog({ onSaved, now = new Date() }) {
                 ✕
               </button>
             </div>
+
+            {session.type === OTHER_SPORT && (
+              <div className="mt-3">
+                <label
+                  htmlFor={`sport-naam-${index}`}
+                  className="text-xs text-anker-muted"
+                >
+                  Welke sport?
+                </label>
+                <input
+                  id={`sport-naam-${index}`}
+                  type="text"
+                  value={session.label ?? ''}
+                  onChange={(e) => setSport(index, 'label', e.target.value)}
+                  maxLength={MAX_SPORT_LABEL}
+                  placeholder="Bijv. Bouldern"
+                  aria-label={`Sessie ${index + 1}: welke sport`}
+                  className="mt-1 w-full rounded-lg border border-anker-border bg-anker-bg p-2.5 text-base text-anker-text placeholder:text-anker-muted/60 focus:border-anker-accent focus:outline-none"
+                />
+              </div>
+            )}
 
             {session.type && session.type !== NO_SPORT && (
               <>
@@ -180,7 +208,10 @@ export default function MovementLog({ onSaved, now = new Date() }) {
           onClick={() =>
             setForm({
               ...form,
-              sports: [...form.sports, { type: null, duration: null, intensity: null }],
+              sports: [
+                ...form.sports,
+                { type: null, label: '', duration: null, intensity: null },
+              ],
             })
           }
         >

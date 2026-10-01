@@ -48,6 +48,19 @@ export function formatDateKeyNL(key) {
   })
 }
 
+/**
+ * "vandaag" / "gisteren" for a date key, or null for anything further back.
+ *
+ * On a screen that can show any of the last seven days, the weekday alone is
+ * ambiguous — "donderdag" is both yesterday and a week ago. These two words
+ * are the ones worth having; beyond them the date itself is clearer.
+ */
+export function relativeDayNameNL(key, now = new Date()) {
+  if (key === getLocalDateKey(now)) return 'vandaag'
+  if (key === getDateKeyDaysAgo(1, now)) return 'gisteren'
+  return null
+}
+
 /** Short Dutch label, e.g. "13 sep". */
 export function formatDateKeyShortNL(key) {
   const [y, m, d] = key.split('-').map(Number)

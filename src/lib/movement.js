@@ -24,6 +24,32 @@ export const SPORT_TYPES = [
 /** "Geen" is an answer, not an absence: it means "I did not exercise today". */
 export const NO_SPORT = 'Geen'
 
+/**
+ * "Anders" is the escape hatch, and on its own it records nothing: a year of
+ * "Anders ×14" cannot tell you whether you went climbing or bowling. Picking
+ * it asks for the name, and that name is what the tallies count.
+ *
+ * The fixed list stays fixed — renaming or extending it would make the old
+ * and new records incomparable, which is why it was copied verbatim in the
+ * first place. A typed name sits BESIDE the category instead of inside it.
+ */
+export const OTHER_SPORT = 'Anders'
+
+/** Long enough for "Bouldern met Joost", short enough to stay one line. */
+export const MAX_SPORT_LABEL = 40
+
+/**
+ * What to CALL a session: the typed name for "Anders", the category
+ * otherwise. Everything that counts or displays sessions goes through this,
+ * so a named sport is counted as itself and never lumped under "Anders".
+ */
+export function sessionName(session) {
+  if (!session) return ''
+  const label = typeof session.label === 'string' ? session.label.trim() : ''
+  if (session.type === OTHER_SPORT && label) return label
+  return session.type ?? ''
+}
+
 export const DURATIONS = ['< 30 min', '30–60 min', '60+ min']
 export const INTENSITIES = ['Laag', 'Medium', 'Hoog']
 
@@ -70,7 +96,10 @@ export function weekStats(checkins, days = 7, today = getLocalDateKey()) {
     if (real.length > 0) sportDays += 1
     sessions += real.length
     for (const session of real) {
-      byType[session.type] = (byType[session.type] ?? 0) + 1
+      // By NAME, not by category: an unnamed "Anders" still falls back to
+      // "Anders", so nothing is lost either way.
+      const name = sessionName(session)
+      byType[name] = (byType[name] ?? 0) + 1
     }
 
     if (movement.physio === 'done') physioDone += 1

@@ -84,9 +84,45 @@ the body to reach them. Tap and score must stay on ONE screen.
 (`maurit1994/ds-k9m4x2`) — these are questions they answered for months, and
 rephrasing them quietly changes what gets answered. Do not "improve" them.
 
-Two modes, Lite (3) and Full (6). Full is a strict superset AND begins with
-exactly Lite's three, so switching mid-flow keeps your place and loses
-nothing. Lite is the default every day and is never remembered.
+**That freeze is on the WORDS, not on how often each one is asked.** Cadence
+is a separate decision and lives in the same file: every question declares
+either a `tier` (asked daily, at that tier) or a `weekday` (asked on that day
+only, whatever the mode). A test asserts each question has exactly one of the
+two, and that every question is reachable — one nobody is ever asked is worse
+than a deleted one, because it sits in the file looking answered-for.
+
+Two modes, Lite (2) and Full (5). Full is a strict superset AND begins with
+exactly Lite's, so switching mid-flow keeps your place and loses nothing
+(the step you are on does not move; only the total grows). Lite is the
+default every day and is never remembered.
+
+### Why the daily set is smaller than the old app's
+
+Six of seven questions asked for free text. Free recall is the most expensive
+thing you can ask for at the hour there is least of it, while the scales
+beside them cost one tap — the balance was backwards. The user reported the
+questions "felt wrong" and stopped filling them in; this is what that was.
+
+- **`goed`** ("Wat ging er GISTEREN goed?") is the hardest retrieval in the
+  set and it sat in the SHORT morning set. Now Full only.
+- **`dankbaar`** is the one question the evidence says to ask less often, not
+  more: counting blessings once a week beat three times a week in
+  Lyubomirsky's frequency work, with the more frequent group doing worse.
+  Weekly, on Sunday. Weekly questions are asked in BOTH modes, or the ones
+  meant to be rare would also be the ones most likely never asked at all.
+- **Lite is two**, not three. `bereiken` is load-bearing (the evening quotes
+  it, Vandaag shows it all day). `zin` stays beside it because it is the only
+  positively-framed question in the short set, and a bad morning opening with
+  nothing but "what must I achieve" is a bleak way in.
+- Never put two weekly questions on the same day — there is a test.
+
+**`onrustig` is asked in the morning and shown again in the evening.** Its
+hint promises "geef het een plek" and for a long time there was none: the
+answer was stored and never surfaced again, which is how parking a worry
+turns into rehearsing it. `EveningCheckin` renders it read-only above the
+priority. Read-only on purpose — the point is a designated moment to look at
+it once more, not another field. Do not delete that block without either
+closing the loop some other way or dropping the question.
 
 **The length is never chosen up front.** Lite simply starts, and the three
 extra questions are offered once the short set is behind you. A fork at the
@@ -165,6 +201,53 @@ pain per region with tension beside it; a second single-number pain question
 put the same thing on screen twice, at lower fidelity. The field stays in the
 schema and old answers still render — only the question is gone.
 
+### The evening opens SHORT, like the Dagstart
+
+Three things are in view — **Prioriteit behaald?**, **Focus vandaag**,
+**Hoe eindig je de dag?** — with "Dag afsluiten" directly under them. The
+other four (reactivity, caffeine, first thing, note) sit behind "Nog 4 dingen
+erbij?", collapsed every evening and never remembered, exactly like Lite.
+
+The priority comes FIRST because it closes the loop the morning opened and
+quotes your own words back; focus and the closing mood follow. Before this the
+evening was seven fields in one scroll with the save button at the bottom —
+all-or-nothing at the hour you have least left.
+
+**Four of the seven evening fields used to be WRITE-ONLY.** Only `intention`
+(History + insights) and `mental` (History) were ever read back; focus,
+reactivity, caffeine and first thing went in and never came out. Collecting a
+number nobody looks at is the sharpest version of "I fill it in and nothing
+happens". `FocusWeek` in History fixed that for focus. Caffeine and first
+thing are still unread: they only pay off as CORRELATES, which needs months,
+so they are an investment, not a return — do not pretend otherwise in the UI,
+and if they are still unread in a few months, cut them rather than leave them
+looking answered-for.
+
+`trends.js`'s `recentSeries` returns the raw series and nothing derived — no
+average, no trend line, no correlation. Six points cannot support a claim
+about a pattern, and a chart that implies one is a lie with axes on it. Gaps
+stay as `null` and render dashed, because a strip that silently closes up
+would make six scattered days look like a solid week.
+
+`eveningInsightFor` closes the day with ONE fact: the arc from the morning's
+mood to the evening's ("Je begon op 4 en eindigt op 2."). It is the only
+honest line available from TODAY alone — no history, no threshold, no
+statistics — which is why it works on the first evening rather than in some
+month when enough data has accumulated. Both ends are the same 1-5 scale, so
+it is one ruler and not two. Like every line in `insights.js` it reports a
+decline as readily as a rise, and there is a test for that.
+
+**"Eerste ding vanochtend" is asked at the wrong end of the day.** It is
+answered at 22:00 about 07:00 — the same retrieval error that moved `goed`
+out of the short morning set. Its purpose is to test whether the morning
+affects that night's SLEEP, and measurement error in a predictor attenuates
+exactly the correlation it is meant to reveal. Two things to know before
+building that analysis: the day alignment is off by one (morning behaviour on
+day D affects the night recorded as `entry[D+1].sleep`, because Anker stores
+sleep in the following morning's Dagstart), and the four options are mutually
+exclusive, so "Daglicht" competes with "Bewegen" when you may have done both
+— it measures a ranking, not an exposure.
+
 ## Colour has exactly three jobs
 
 Defined in `src/index.css`. Keep them apart — the moment colour becomes
@@ -219,22 +302,83 @@ fields do not, and that overview is the reason to keep logging at all.
 
 Options are VERBATIM from the previous app, for the same reason as the
 Dagstart questions: renaming a category makes the old and new records
-incomparable.
+incomparable. The fixed list therefore never grows — `"Anders"` carries a
+typed `label` instead, and that name is what the tallies count, via
+`sessionName()`. Everything that counts or displays a session goes through
+that function, so "Bouldern ×14" appears rather than a useless "Anders ×14",
+while an unnamed `Anders` from before v7 still falls back to `"Anders"` and
+never vanishes from the tally. The label is cleared whenever the type moves
+away from `Anders`, in the form AND in `migrateMovement`: a session must
+never read "Gym" with "Bouldern" sitting beside it.
 
 `"Geen"` is a sport type meaning "I did not exercise today" — an ANSWER, not
 an absence, so a block holding only it is kept and counts as a logged day. It
 is exclusive: `migrateMovement` collapses the list to it, because "no sport,
 and also an hour of running" cannot both be true.
 
-**The Vandaag/Gisteren toggle writes to that day's OWN entry** rather than
-storing a marker on the session. A session logged Tuesday that happened Monday
-night belongs to Monday; every later question about "how many days did I
-train" then needs no special handling.
+**The day is chosen in the week strip, which is why that strip sits ABOVE the
+log.** Exercise gets logged late — you remember on Tuesday that you swam on
+Saturday — so any of the last 7 days can be filled in, not just today and
+yesterday. The strip already says which days are blank, so tapping the blank
+one you mean is the shortest route from noticing a gap to closing it, and it
+keeps ONE day control on the screen instead of two (the Vandaag tab's
+`DaySwitcher` is not used here). Whichever day is selected, the log writes to
+that day's OWN entry rather than storing a marker on the session: a session
+logged Tuesday that happened Saturday night belongs to Saturday, and every
+later question about "how many days did I train" then needs no special
+handling.
+
+The selected day lives in `App.jsx` as an OFFSET, not a date key, for two
+reasons: saving bumps `dataVersion` and remounts the tab, which would
+otherwise snap you back to today halfway through filling in Saturday (the
+same remount hazard as everywhere else); and an offset re-derives correctly
+across midnight, where a stored key would quietly point at the wrong day.
 
 The week is a rolling 7 days including today, matching `daysInWindow` — a
 calendar week makes Monday morning look like failure every single week. A
 missed physio day is never coloured as a failure in the strip; that is the
-punishment this app exists to avoid.
+punishment this app exists to avoid. The selection ring sits OUTSIDE the box
+so the fill keeps saying how the day went, not where you are.
+
+## Vooruit — the household's mental load
+
+`modules/load/` + `lib/mentalload.js`. A fifth tab. Five is the ceiling at
+390px; a sixth would push the labels below a readable size.
+
+Daminger's study of cognitive labour (American Sociological Review, 2019)
+splits it into four phases: ANTICIPATING a need before it is urgent,
+identifying options, DECIDING, and MONITORING that it happens. The division
+between partners is most lopsided at anticipating and monitoring, while
+deciding is roughly equal. "Waiting until she says something" is exactly that
+shape — taking part in the decision while someone else carries the noticing.
+
+So this is deliberately **not a to-do list**. A task list only starts once
+somebody has already noticed, and the noticing is the work being
+redistributed. The unit is a thing coming up, how soon it needs someone, and
+whether this user RAISED it. `raised` is the measure, not `done`: doing a job
+you were handed is not the labour in question.
+
+**It is private to this user, by their explicit choice.** A shared ledger of
+who carries what becomes evidence in an argument. Do not add partner
+visibility, sharing or comparison without asking — and the stored shape keeps
+that door open rather than assuming it.
+
+**Nothing here scores you.** No percentage, no target, no streak; `loadStats`
+returns counts and there is a test asserting it exposes no score, target or
+streak field. An item noticed three weeks ago and still unraised sorts to the
+top, which is information, not a reprimand.
+
+`ReviewCue` is one quiet card on SUNDAY, on the Vandaag tab, offering a way
+in. Anticipating is a week-scale operation — a daily prompt would turn it
+into the form-filling the Dagstart was just pruned of — and Sunday is the
+evening you can still do something about the week ahead. It never says you
+are behind and never counts the Sundays you skipped.
+
+The list lives in its own `anker_v1_load` key, beside the check-ins rather
+than inside a day: an item is noticed on one day and still true three weeks
+later, so it does not belong to a date the way a mood score does. It is in
+the backup, and import merges by id — a restore can never un-raise something
+you raised.
 
 ## Nothing here may punish a missed day
 
@@ -247,7 +391,8 @@ encouragement — every one states a fact.
   tells you the fortnight before the gap no longer counts, which is where
   people stop. `longestStreak` sits beside it so a broken run cannot erase
   that the run happened.
-- **`DaySwitcher.jsx`** puts Gisteren beside Vandaag on the daily screens.
+- **`DaySwitcher.jsx`** puts Gisteren beside Vandaag on the Vandaag tab
+  (Beweging picks its day from the week strip instead — see above).
   Yesterday is EDITABLE, not merely fillable-when-empty: you remember the
   evening at breakfast, or you tapped the wrong face. Every Vandaag card
   takes `now` as a prop and derives its own date key from it, so App only
@@ -269,6 +414,27 @@ encouragement — every one states a fact.
 - **`insights.js`** returns ONE factual line after saving, or null. No praise,
   no "keep it up" — invented cheerfulness is obvious, and from a health tool
   it is worse than silence. There is a test asserting it never congratulates.
+  Its thresholds were once so high it returned null on almost every day, which
+  is what "I fill it in and nothing happens" actually was. Two rules fixed
+  that: the priority tally needs FOUR evenings in a fortnight, not seven, and
+  an extreme mood is named once there are five prior days. Extremes are
+  reported SYMMETRICALLY — an app that mentions your best days and stays
+  quiet about your worst is flattering you by selection, which is the same
+  failure as inventing praise outright. They are phrased in RECORDED days
+  ("van je laatste 7 ingevulde dagen"), never calendar days, because "in 30
+  days" is a lie when six of them were filled in.
+- **`LookbackCard`** shows ONE thing you wrote on an earlier day, picked by
+  `lookback.js`. It is the only honest return the app can give in its first
+  weeks: real pattern-finding needs dense data before an answer would be true
+  rather than merely printable, and printing one sooner is a lie dressed as
+  an insight. Your own sentence from three weeks ago needs no statistics.
+  The pick is DETERMINISTIC (seeded by the date), because this screen remounts
+  after every save and a random pick would flicker and could repeat. It
+  prefers days at least a week old — the point is something you could not
+  recall unaided — but falls back to recent ones, or the card would stay empty
+  for the first week, which is exactly when the habit is least established.
+  It sits directly under the Dagstart, not at the bottom: a reward you must
+  scroll past four cards to collect is not a reward.
 
 The insight is DERIVED on render, never held in state: saving calls
 `onSaved()`, which refreshes the Vandaag cards and remounts the component, so

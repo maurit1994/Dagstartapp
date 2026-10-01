@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   ALL_QUESTION_IDS,
   FIRST_THING_VALUES,
-  isWeekendPlanningDay,
   questionsForMode,
   QUESTIONS,
+  weeklyQuestionsOn,
 } from '../questions.js'
 
 // Local dates, so these never drift with the runner's timezone.
@@ -16,25 +16,37 @@ const SUNDAY = new Date(2026, 8, 20)
 const ids = (mode, date) => questionsForMode(mode, date).map((q) => q.id)
 
 describe('questionsForMode', () => {
-  it('lite asks exactly three questions, in the old app\'s order', () => {
-    expect(ids('lite', MONDAY)).toEqual(['goed', 'bereiken', 'zin'])
+  it('lite asks two typed questions on an ordinary day', () => {
+    // Was three. `goed` asks you to reconstruct yesterday evening, which is
+    // the most expensive retrieval in the set and the worst fit for the
+    // morning it used to sit in.
+    expect(ids('lite', MONDAY)).toEqual(['bereiken', 'zin'])
   })
 
-  it("full asks six, with Lite's three FIRST and the extras after", () => {
-    // Deliberately not the old app's interleaved order: the short set has to
-    // be answerable without committing to the long one.
+  it('keeps one positively-framed question in the short set', () => {
+    // A bad morning that opens with nothing but "what must I achieve" is a
+    // bleak way in, which is why `zin` survives the prune and `goed` does not.
+    expect(ids('lite', MONDAY)).toContain('zin')
+  })
+
+  it("full asks five, with Lite's FIRST and the extras after", () => {
     expect(ids('full', MONDAY)).toEqual([
-      'goed',
       'bereiken',
       'zin',
-      'dankbaar',
+      'goed',
       'gedragen',
       'onrustig',
     ])
   })
 
-  it("full BEGINS with exactly the Lite questions, so a mid-flow switch keeps your place", () => {
-    expect(ids('full', MONDAY).slice(0, 3)).toEqual(ids('lite', MONDAY))
+  it('full BEGINS with exactly the Lite questions, so a mid-flow switch keeps your place', () => {
+    expect(ids('full', MONDAY).slice(0, 2)).toEqual(ids('lite', MONDAY))
+  })
+
+  it('never asks dankbaar on an ordinary day, in either mode', () => {
+    // The one question the evidence says to ask less often, not more.
+    expect(ids('lite', MONDAY)).not.toContain('dankbaar')
+    expect(ids('full', MONDAY)).not.toContain('dankbaar')
   })
 
   it('full is a superset of lite', () => {
@@ -76,12 +88,64 @@ describe('the weekend question', () => {
   })
 })
 
-describe('isWeekendPlanningDay', () => {
-  it('is Friday only', () => {
-    expect(isWeekendPlanningDay(FRIDAY)).toBe(true)
-    expect(isWeekendPlanningDay(SATURDAY)).toBe(false)
-    expect(isWeekendPlanningDay(SUNDAY)).toBe(false)
-    expect(isWeekendPlanningDay(MONDAY)).toBe(false)
+describe('the gratitude question', () => {
+  it('is asked on Sunday only', () => {
+    expect(ids('lite', SUNDAY)).toContain('dankbaar')
+    for (const day of [MONDAY, FRIDAY, SATURDAY]) {
+      expect(ids('full', day)).not.toContain('dankbaar')
+    }
+  })
+
+  it('is asked in BOTH modes on its day', () => {
+    // A question meant to be rare must not also be the one most likely never
+    // to be asked: gating it on Full would do exactly that.
+    expect(ids('lite', SUNDAY)).toContain('dankbaar')
+    expect(ids('full', SUNDAY)).toContain('dankbaar')
+  })
+
+  it('adds exactly one question to the Sunday short set', () => {
+    expect(ids('lite', SUNDAY)).toEqual(['bereiken', 'zin', 'dankbaar'])
+  })
+})
+
+describe('weeklyQuestionsOn', () => {
+  it('returns the question whose day it is, and nothing else', () => {
+    expect(weeklyQuestionsOn(FRIDAY).map((q) => q.id)).toEqual(['weekend'])
+    expect(weeklyQuestionsOn(SUNDAY).map((q) => q.id)).toEqual(['dankbaar'])
+  })
+
+  it('returns nothing on a day no weekly question falls on', () => {
+    expect(weeklyQuestionsOn(MONDAY)).toEqual([])
+    expect(weeklyQuestionsOn(SATURDAY)).toEqual([])
+  })
+
+  it('never puts two weekly questions on the same day', () => {
+    // Two extra questions on one morning is the pile-up the prune was for.
+    for (let d = 0; d < 7; d += 1) {
+      const date = new Date(2026, 8, 14 + d)
+      expect(weeklyQuestionsOn(date).length).toBeLessThanOrEqual(1)
+    }
+  })
+})
+
+describe('every question has exactly one cadence', () => {
+  it('declares either a tier or a weekday, never both and never neither', () => {
+    for (const question of Object.values(QUESTIONS)) {
+      const daily = question.tier !== undefined
+      const weekly = question.weekday !== undefined
+      expect(daily !== weekly).toBe(true)
+    }
+  })
+
+  it('is reachable: every question is asked by some mode on some day', () => {
+    // A question nobody is ever asked is worse than a deleted one — it sits
+    // in the file looking answered-for.
+    const asked = new Set()
+    for (let d = 0; d < 7; d += 1) {
+      const date = new Date(2026, 8, 14 + d)
+      for (const id of ids('full', date)) asked.add(id)
+    }
+    for (const id of Object.keys(QUESTIONS)) expect(asked).toContain(id)
   })
 })
 
@@ -102,10 +166,23 @@ describe('ALL_QUESTION_IDS — the render order for stored answers', () => {
     }
   })
 
-  it('puts bereiken before the evening-facing questions it feeds', () => {
-    expect(ALL_QUESTION_IDS.indexOf('goed')).toBeLessThan(
-      ALL_QUESTION_IDS.indexOf('bereiken'),
-    )
+  it('still contains goed and dankbaar, now that neither is asked daily', () => {
+    // Months of answers were stored under the old rules. What was recorded
+    // outlives the rule that prompted it.
+    expect(ALL_QUESTION_IDS).toContain('goed')
+    expect(ALL_QUESTION_IDS).toContain('dankbaar')
+  })
+
+  it('keeps its order unchanged by the prune, so old summaries read the same', () => {
+    expect(ALL_QUESTION_IDS).toEqual([
+      'goed',
+      'dankbaar',
+      'bereiken',
+      'gedragen',
+      'onrustig',
+      'zin',
+      'weekend',
+    ])
   })
 })
 

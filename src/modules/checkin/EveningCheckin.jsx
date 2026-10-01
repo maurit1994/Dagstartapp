@@ -16,6 +16,7 @@ import {
 import { getLocalDateKey } from '../../lib/date.js'
 import { isDagstartDone } from '../../lib/dagstart.js'
 import { getCheckin, getIntention, saveEvening } from '../../lib/storage.js'
+import { eveningInsightFor } from '../../lib/insights.js'
 
 /**
  * The evening half of the day, carried over from the user's previous app:
@@ -41,6 +42,9 @@ import { getCheckin, getIntention, saveEvening } from '../../lib/storage.js'
 /** Local hour from which the evening card opens by itself. */
 export const EVENING_HOUR = 17
 
+/** How many fields sit behind "meer invullen", for the offer's wording. */
+const EXTRA_EVENING_COUNT = 4
+
 export default function EveningCheckin({ onSaved, now = new Date() }) {
   const dateKey = getLocalDateKey(now)
   // Keyed on the day being viewed, not on today: the evening quotes the
@@ -48,6 +52,13 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
   // day's intention. Reading today's would quietly ask about the wrong one.
   const priority = getIntention(dateKey)
   const entry = getCheckin(dateKey)
+  // What this morning's `onrustig` question caught, shown back here and
+  // nowhere else. Its hint promises "geef het een plek" and for a long time
+  // there was none: you wrote a worry down and it was never surfaced again,
+  // which is how parking a worry turns into rehearsing it. Read-only on
+  // purpose — the point is a designated moment to look at it once more, not
+  // another field to fill in.
+  const onrustig = entry?.answers?.onrustig?.trim() ?? ''
   const stored = entry?.evening ?? null
   const morningDone = isDagstartDone(entry)
 
@@ -67,6 +78,10 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
     note: stored?.note ?? '',
   }))
   const [error, setError] = useState(null)
+  // Collapsed every evening, never remembered — the same rule as the
+  // Dagstart's Lite default. A short evening you actually finish beats a
+  // complete one you abandon at the fourth scale.
+  const [showMore, setShowMore] = useState(false)
 
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -89,7 +104,13 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
   }
 
   if (!isOpen && saved) {
-    return <EveningSummary evening={saved} onEdit={() => setIsOpen(true)} />
+    return (
+      <EveningSummary
+        entry={getCheckin(dateKey)}
+        evening={saved}
+        onEdit={() => setIsOpen(true)}
+      />
+    )
   }
 
   if (!isOpen) {
@@ -113,15 +134,16 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
 
   return (
     <Screen title="Hoe ging de dag?">
-      <Scale
-        label="Focus vandaag"
-        words={FOCUS_SCALE}
-        direction="up"
-        value={form.focus}
-        onSelect={(n) => set('focus', n)}
-      />
+      {onrustig && (
+        <div className="rounded-xl border border-anker-border bg-anker-bg p-3">
+          <p className="text-sm text-anker-muted">Vanochtend hield dit je bezig</p>
+          <p className="mt-1 whitespace-pre-wrap text-base text-anker-text">
+            “{onrustig}”
+          </p>
+        </div>
+      )}
 
-      <div className="mt-5">
+      <div className={onrustig ? 'mt-5' : ''}>
         <p className="text-sm text-anker-muted">Prioriteit behaald?</p>
         {priority ? (
           <p className="mt-1 text-base text-anker-text">“{priority}”</p>
@@ -153,6 +175,29 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
 
       <div className="mt-5">
         <Scale
+          label="Focus vandaag"
+          words={FOCUS_SCALE}
+          direction="up"
+          value={form.focus}
+          onSelect={(n) => set('focus', n)}
+        />
+      </div>
+
+      <div className="mt-5">
+        <Scale
+          label="Hoe eindig je de dag?"
+          words={MOOD_WORDS}
+          emoji={MOOD_EMOJI}
+          direction="up"
+          value={form.mental}
+          onSelect={(n) => set('mental', n)}
+        />
+      </div>
+
+      {showMore ? (
+        <>
+      <div className="mt-5">
+        <Scale
           label="Emotionele reactiviteit"
           words={REACTIVITY_SCALE}
           direction="down"
@@ -160,7 +205,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
           onSelect={(n) => set('reactief', n)}
         />
       </div>
-
       <div className="mt-5">
         <p className="text-sm text-anker-muted">Cafeïne na 14:00?</p>
         <div className="mt-2 flex gap-2">
@@ -185,7 +229,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
           ))}
         </div>
       </div>
-
       <div className="mt-5">
         <p className="text-sm text-anker-muted">Eerste ding vanochtend</p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -207,18 +250,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
           ))}
         </div>
       </div>
-
-      <div className="mt-5">
-        <Scale
-          label="Hoe eindig je de dag?"
-          words={MOOD_WORDS}
-          emoji={MOOD_EMOJI}
-          direction="up"
-          value={form.mental}
-          onSelect={(n) => set('mental', n)}
-        />
-      </div>
-
       <textarea
         id="avond-notitie"
         value={form.note}
@@ -228,7 +259,16 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
         placeholder="Iets om te onthouden? Mag leeg."
         className="mt-5 w-full rounded-xl border border-anker-border bg-anker-bg p-3 text-base text-anker-text placeholder:text-anker-muted/60 focus:border-anker-accent focus:outline-none"
       />
-
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowMore(true)}
+          className="mt-5 min-h-12 w-full rounded-xl border border-anker-border text-sm text-anker-muted transition hover:border-anker-accent"
+        >
+          Nog {EXTRA_EVENING_COUNT} dingen erbij?
+        </button>
+      )}
       {error && (
         <p
           role="alert"
@@ -245,8 +285,12 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
   )
 }
 
-function EveningSummary({ evening, onEdit }) {
+function EveningSummary({ entry, evening, onEdit }) {
   const mood = MOOD_SCALE.find((m) => m.value === evening.mental)
+  // DERIVED on render, never held in state: saving calls onSaved(), which
+  // remounts this whole screen and throws away anything set just before it.
+  // That has caught this project out four times now.
+  const arc = eveningInsightFor(entry)
   const outcome = PRIORITY_OUTCOMES.find((o) => o.value === evening.intention)
 
   const rows = [
@@ -281,6 +325,10 @@ function EveningSummary({ evening, onEdit }) {
       {evening.note && (
         <p className="mt-3 whitespace-pre-wrap text-anker-text">{evening.note}</p>
       )}
+
+      {/* The one honest thing available from TODAY alone: no history, no
+          threshold, no statistics. A fact about the day you just closed. */}
+      {arc && <p className="mt-3 text-sm text-anker-muted">{arc}</p>}
 
       <button
         type="button"
