@@ -18,6 +18,7 @@ describe('migrateCheckin: v1 -> v2', () => {
       mental: 3,
       mode: 'lite',
       answers: {},
+      eerste: null,
       sleep: null,
       body: [{ region: 'hip_l', pain: 4, tension: 0 }],
       note: 'hoi',
@@ -32,6 +33,7 @@ describe('migrateCheckin: v1 -> v2', () => {
       mental: 5,
       mode: 'full',
       answers: { bereiken: 'huisarts bellen' },
+      eerste: null,
       sleep: null,
       movement: null,
       body: [{ region: 'neck', pain: 1, tension: 5 }],
@@ -140,6 +142,7 @@ describe('migrateCheckin: the evening block (v2 -> v3)', () => {
       ...v2,
       mode: 'lite',
       answers: {},
+      eerste: null,
       sleep: null,
       movement: null,
       evening: null,
@@ -238,6 +241,27 @@ describe('migrateExport', () => {
     expect(out.load.map((i) => i.id)).toEqual(['x', 'z'])
     expect(out.load[0].raised).toBe(true)
     expect(out.load[1].horizon).toBe('week')
+  })
+
+  it('imports a v8 export, folding the evening\'s "eerste" onto the day', () => {
+    // It was answered at 22:00 about 07:00. The answer is kept exactly as it
+    // was — only where it lives changes.
+    const out = migrateExport({
+      app: 'anker',
+      schemaVersion: 8,
+      checkins: {
+        '2026-09-11': {
+          mental: 4, body: [], note: 'v8',
+          evening: { mental: 3, focus: 4, eerste: 'Daglicht' },
+        },
+      },
+      thoughts: [],
+    })
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(out.checkins['2026-09-11'].eerste).toBe('Daglicht')
+    // Never deleted from where it was: the move stays reversible.
+    expect(out.checkins['2026-09-11'].evening.eerste).toBe('Daglicht')
+    expect(out.checkins['2026-09-11'].evening.focus).toBe(4)
   })
 
   it('refuses a file that is not an Anker backup', () => {
@@ -584,5 +608,39 @@ describe('migrateCheckin: the movement block (v5 -> v6)', () => {
       movement: { sports: [{ type: 'Yoga', duration: '< 30 min' }], physio: 'done' },
     })
     expect(migrateCheckin(once).movement).toEqual(once.movement)
+  })
+})
+
+describe('migrateCheckin: "eerste" moved to the morning (v8 -> v9)', () => {
+  it('gives a day that never answered it an explicit null', () => {
+    expect(migrateCheckin({ body: [] }).eerste).toBeNull()
+  })
+
+  it('folds the evening answer onto the day', () => {
+    const out = migrateCheckin({ body: [], evening: { mental: 3, eerste: 'Bewegen' } })
+    expect(out.eerste).toBe('Bewegen')
+  })
+
+  it('lets an answer given on the day itself win over the evening copy', () => {
+    // Asked in the morning since v9; that answer is the accurate one.
+    const out = migrateCheckin({
+      body: [], eerste: 'Daglicht', evening: { mental: 3, eerste: 'Telefoon' },
+    })
+    expect(out.eerste).toBe('Daglicht')
+  })
+
+  it('never deletes the evening copy, so the move stays reversible', () => {
+    const out = migrateCheckin({ body: [], evening: { mental: 3, eerste: 'Telefoon' } })
+    expect(out.evening.eerste).toBe('Telefoon')
+  })
+
+  it('rejects a value the app does not know', () => {
+    expect(migrateCheckin({ body: [], eerste: 'Mediteren' }).eerste).toBeNull()
+    expect(migrateCheckin({ body: [], eerste: 42 }).eerste).toBeNull()
+  })
+
+  it('is safe to run twice', () => {
+    const once = migrateCheckin({ body: [], evening: { mental: 3, eerste: 'Daglicht' } })
+    expect(migrateCheckin(once)).toEqual(once)
   })
 })

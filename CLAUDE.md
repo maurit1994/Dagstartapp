@@ -237,16 +237,36 @@ month when enough data has accumulated. Both ends are the same 1-5 scale, so
 it is one ruler and not two. Like every line in `insights.js` it reports a
 decline as readily as a rise, and there is a test for that.
 
-**"Eerste ding vanochtend" is asked at the wrong end of the day.** It is
+**"Eerste ding vanochtend" is asked in the MORNING** (`FirstThing.jsx`, on
+the sleep step) and stored as `entry.eerste`. It used to sit in the evening,
 answered at 22:00 about 07:00 — the same retrieval error that moved `goed`
 out of the short morning set. Its purpose is to test whether the morning
 affects that night's SLEEP, and measurement error in a predictor attenuates
-exactly the correlation it is meant to reveal. Two things to know before
-building that analysis: the day alignment is off by one (morning behaviour on
-day D affects the night recorded as `entry[D+1].sleep`, because Anker stores
-sleep in the following morning's Dagstart), and the four options are mutually
-exclusive, so "Daglicht" competes with "Bewegen" when you may have done both
-— it measures a ranking, not an exposure.
+exactly the correlation it is meant to reveal, so a reconstruction that
+drifts toward "what I usually do" is the one thing that would hide a real
+effect.
+
+It rides along on the sleep step rather than becoming a step of its own: the
+Dagstart was just pruned, and the predictor belongs beside the thing it is
+hypothesised to affect. `migrateCheckin` folds `evening.eerste` onto the day
+and NEVER deletes the evening's copy, so every export written before v9 still
+carries the answer and the move stays reversible — the same pattern as
+`bereiken` in v4. The evening no longer asks it and no longer lists it in its
+summary (the Dagstart summary does, and the fold means that covers old days
+too), but `EveningCheckin` still carries the field through a re-save so an
+old answer is never wiped, exactly as `pijn` is carried.
+
+Two things to know before building the analysis it exists for:
+
+1. **The day alignment is off by one.** Morning behaviour on day D affects the
+   night recorded as `entry[D+1].sleep`, because Anker stores sleep in the
+   FOLLOWING morning's Dagstart. Joining day to day compares the morning with
+   the night before it — the wrong direction entirely.
+2. **The four options are mutually exclusive**, so "Daglicht" competes with
+   "Bewegen" when you may have done both: it measures a ranking, not an
+   exposure. Renaming or splitting them would make the old and new records
+   incomparable, so they stay — but if the analysis finds nothing, this is
+   the first place to look before concluding there is no effect.
 
 ## Colour has exactly three jobs
 

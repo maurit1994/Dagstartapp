@@ -7,7 +7,6 @@ import { MOOD_SCALE } from '../../lib/regions.js'
 const MOOD_WORDS = ['', ...MOOD_SCALE.map((m) => m.label)]
 const MOOD_EMOJI = ['', ...MOOD_SCALE.map((m) => m.emoji)]
 import {
-  FIRST_THING_OPTIONS,
   FOCUS_SCALE,
   PAIN_SCALE,
   PRIORITY_OUTCOMES,
@@ -43,7 +42,7 @@ import { eveningInsightFor } from '../../lib/insights.js'
 export const EVENING_HOUR = 17
 
 /** How many fields sit behind "meer invullen", for the offer's wording. */
-const EXTRA_EVENING_COUNT = 4
+const EXTRA_EVENING_COUNT = 3
 
 export default function EveningCheckin({ onSaved, now = new Date() }) {
   const dateKey = getLocalDateKey(now)
@@ -74,6 +73,9 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
     focus: stored?.focus ?? null,
     reactief: stored?.reactief ?? null,
     cafeine: stored?.cafeine ?? null,
+    // Asked in the MORNING since v9 and no longer a question here, but still
+    // carried through a re-save so an answer given before the move is never
+    // wiped — the same treatment `pijn` gets.
     eerste: stored?.eerste ?? null,
     note: stored?.note ?? '',
   }))
@@ -229,27 +231,6 @@ export default function EveningCheckin({ onSaved, now = new Date() }) {
           ))}
         </div>
       </div>
-      <div className="mt-5">
-        <p className="text-sm text-anker-muted">Eerste ding vanochtend</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {FIRST_THING_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => set('eerste', option.value)}
-              aria-pressed={form.eerste === option.value}
-              aria-label={`Eerste ding: ${option.value}`}
-              className={`min-h-11 rounded-full border px-3.5 text-sm transition ${
-                form.eerste === option.value
-                  ? 'border-anker-accent bg-anker-accent/15 text-anker-text'
-                  : 'border-anker-border bg-anker-bg text-anker-muted'
-              }`}
-            >
-              <span aria-hidden="true">{option.emoji}</span> {option.value}
-            </button>
-          ))}
-        </div>
-      </div>
       <textarea
         id="avond-notitie"
         value={form.note}
@@ -299,7 +280,10 @@ function EveningSummary({ entry, evening, onEdit }) {
     ['Prioriteit', outcome && `${outcome.emoji} ${outcome.label}`],
     ['Reactiviteit', evening.reactief && REACTIVITY_SCALE[evening.reactief]],
     ['Cafeïne na 14:00', evening.cafeine === null ? null : evening.cafeine ? 'Ja' : 'Nee'],
-    ['Eerste ding', evening.eerste],
+    // "Eerste ding" is no longer listed here: it is asked in the morning
+    // since v9, migrateCheckin folds the old evening answers onto the day,
+    // and the Dagstart summary shows it. Listing it here too would put one
+    // answer on two screens.
   ].filter(([, value]) => value)
 
   return (

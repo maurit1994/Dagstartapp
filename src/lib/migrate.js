@@ -31,6 +31,18 @@
  * whether the physio exercises were done. Purely additive; old days get
  * `movement: null`.
  *
+ * v8 -> v9: `eerste` ("the first thing I did this morning") moved OFF the
+ * evening block and onto the day itself. It was asked at 22:00 about 07:00 —
+ * a reconstruction, and reconstructions drift toward what you usually do.
+ * Its whole purpose is to test whether the morning affects that night's
+ * sleep, and measurement error in a predictor attenuates exactly the
+ * correlation it is meant to reveal.
+ *
+ * Folded, not moved: `migrateCheckin` reads `evening.eerste` into
+ * `entry.eerste` when the day has no answer of its own, and the evening block
+ * keeps its copy, so every export written before this still carries what you
+ * answered and the move stays reversible. Same pattern as `bereiken` in v4.
+ *
  * v7 -> v8: a new top-level list, `load` — the things coming up that someone
  * in the household has to think about, and whether this user was the one who
  * raised them. It lives beside `checkins` rather than inside a day, because
@@ -47,7 +59,7 @@
 // The load list is normalised by lib/mentalload.js, which owns its shape.
 import { migrateLoadItems } from './mentalload.js'
 
-export const CURRENT_SCHEMA_VERSION = 8
+export const CURRENT_SCHEMA_VERSION = 9
 
 /** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
@@ -112,13 +124,21 @@ export function migrateCheckin(entry) {
     body = entry.pain.map((p) => ({ region: p.region, pain: p.intensity, tension: 0 }))
   }
 
+  const evening = migrateEvening(entry.evening)
+
   return {
     mental: entry.mental ?? null,
     mode: MODES.includes(entry.mode) ? entry.mode : 'lite',
     answers: cleanAnswers(entry.answers),
+    // Asked in the morning since v9. An answer given on the day itself always
+    // wins; the evening's copy only fills a gap, and is never deleted, so the
+    // move stays reversible. Same pattern as `bereiken` in v4.
+    eerste: FIRST_THING_VALUES.includes(entry.eerste)
+      ? entry.eerste
+      : (evening?.eerste ?? null),
     sleep: migrateSleep(entry.sleep),
     movement: migrateMovement(entry.movement),
-    evening: migrateEvening(entry.evening),
+    evening,
     body: body
       .filter((b) => b && typeof b.region === 'string')
       .map((b) => ({

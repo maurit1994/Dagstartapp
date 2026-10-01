@@ -4,6 +4,7 @@ import Button from '../../components/Button.jsx'
 import QuestionStep from './QuestionStep.jsx'
 import MoodStep from './MoodStep.jsx'
 import SleepStep from './SleepStep.jsx'
+import FirstThing from './FirstThing.jsx'
 import { MOOD_SCALE } from '../../lib/regions.js'
 import { SLEEP_EMOJI, SLEEP_SCALE } from '../../lib/questions.js'
 import { formatSleepDuration } from '../../lib/sleep.js'
@@ -46,6 +47,7 @@ export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' 
   const [step, setStep] = useState(0)
   const [mental, setMental] = useState(() => stored?.mental ?? null)
   const [sleep, setSleep] = useState(() => stored?.sleep ?? null)
+  const [eerste, setEerste] = useState(() => stored?.eerste ?? null)
   const [error, setError] = useState(null)
 
   const questions = questionsForMode(mode, now)
@@ -61,6 +63,7 @@ export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' 
     setAnswers(current?.answers ?? {})
     setMental(current?.mental ?? null)
     setSleep(current?.sleep ?? null)
+    setEerste(current?.eerste ?? null)
     setStep(0)
     setError(null)
     setIsEditing(true)
@@ -83,6 +86,7 @@ export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' 
         mental,
         mode,
         answers,
+        eerste,
         sleep,
         body: current?.body ?? [],
         note: current?.note ?? '',
@@ -151,7 +155,15 @@ export default function Checkin({ onSaved, now = new Date(), label = 'Dagstart' 
         />
       )}
       {step === questions.length && <MoodStep value={mental} onChange={setMental} />}
-      {step === lastStep && <SleepStep value={sleep} onChange={setSleep} />}
+      {step === lastStep && (
+        <>
+          <SleepStep value={sleep} onChange={setSleep} />
+          {/* Rides along on the sleep step rather than becoming a step of its
+              own: the predictor belongs beside the thing it is hypothesised
+              to affect, and the Dagstart was just made shorter. */}
+          <FirstThing value={eerste} onChange={setEerste} />
+        </>
+      )}
 
       {/* Offered once the short set is behind you, never before: a fork at the
           start is a decision taken at the hour you have least to spend on
@@ -264,6 +276,15 @@ function CheckinSummary({ entry, dateKey, label, onEdit }) {
 
       {entry.sleep && <SleepSummary sleep={entry.sleep} />}
 
+      {/* Shown here and not in the evening: migrateCheckin folds the old
+          evening answers onto the day, so this one line covers every day ever
+          recorded without showing the same thing on two screens. */}
+      {entry.eerste && (
+        <p className="mt-4 text-sm text-anker-muted">
+          Eerste ding vanochtend:{' '}
+          <span className="text-anker-text">{entry.eerste}</span>
+        </p>
+      )}
 
       <Button
         variant="secondary"
