@@ -211,6 +211,35 @@ describe('migrateExport', () => {
     expect(out.checkins['2026-09-15'].note).toBe('v6')
   })
 
+  it('imports a v7 export — no load list means nothing was ever noted', () => {
+    const out = migrateExport({
+      app: 'anker',
+      schemaVersion: 7,
+      checkins: { '2026-09-11': { mental: 4, body: [], note: 'v7' } },
+      thoughts: [],
+    })
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
+    expect(out.load).toEqual([])
+    expect(out.checkins['2026-09-11'].note).toBe('v7')
+  })
+
+  it('carries a v8 load list through, repairing what it must', () => {
+    const out = migrateExport({
+      app: 'anker',
+      schemaVersion: 8,
+      checkins: {},
+      thoughts: [],
+      load: [
+        { id: 'x', text: 'tandarts boeken', horizon: 'week', raised: true, createdAt: 5, resolvedAt: null },
+        { id: 'y', text: '', horizon: 'week' },
+        { id: 'z', text: 'paspoort verlengen', horizon: 'onzin', createdAt: 6 },
+      ],
+    })
+    expect(out.load.map((i) => i.id)).toEqual(['x', 'z'])
+    expect(out.load[0].raised).toBe(true)
+    expect(out.load[1].horizon).toBe('week')
+  })
+
   it('refuses a file that is not an Anker backup', () => {
     expect(() => migrateExport({ app: 'anders' })).toThrow(/geen Anker-backup/)
     expect(() => migrateExport(null)).toThrow(/geen Anker-backup/)

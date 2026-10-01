@@ -31,6 +31,12 @@
  * whether the physio exercises were done. Purely additive; old days get
  * `movement: null`.
  *
+ * v7 -> v8: a new top-level list, `load` — the things coming up that someone
+ * in the household has to think about, and whether this user was the one who
+ * raised them. It lives beside `checkins` rather than inside a day, because
+ * it is not a record of a day: an item outlives the day it was noticed on.
+ * Purely additive; an export without it imports as an empty list.
+ *
  * v6 -> v7: a sport session gained `label`, the typed name for an "Anders"
  * session. Additive: every session stored before this gets `label: ''`, which
  * is the honest value — the name was never asked for. The label is cleared
@@ -38,7 +44,10 @@
  * name behind that contradicts it.
  */
 
-export const CURRENT_SCHEMA_VERSION = 7
+// The load list is normalised by lib/mentalload.js, which owns its shape.
+import { migrateLoadItems } from './mentalload.js'
+
+export const CURRENT_SCHEMA_VERSION = 8
 
 /** How a day's priority turned out. null means not answered. */
 export const INTENTION_OUTCOMES = ['done', 'partly', 'missed']
@@ -326,6 +335,9 @@ export function migrateExport(data) {
     ...data,
     schemaVersion: CURRENT_SCHEMA_VERSION,
     checkins: migrateCheckins(data.checkins),
+    // Absent from every export before v8, which reads as "nothing was ever
+    // noted" — true of them.
+    load: migrateLoadItems(data.load),
     thoughts: Array.isArray(data.thoughts) ? data.thoughts : [],
     intentions:
       data.intentions && typeof data.intentions === 'object' ? data.intentions : {},

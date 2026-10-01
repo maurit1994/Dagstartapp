@@ -293,6 +293,46 @@ missed physio day is never coloured as a failure in the strip; that is the
 punishment this app exists to avoid. The selection ring sits OUTSIDE the box
 so the fill keeps saying how the day went, not where you are.
 
+## Vooruit — the household's mental load
+
+`modules/load/` + `lib/mentalload.js`. A fifth tab. Five is the ceiling at
+390px; a sixth would push the labels below a readable size.
+
+Daminger's study of cognitive labour (American Sociological Review, 2019)
+splits it into four phases: ANTICIPATING a need before it is urgent,
+identifying options, DECIDING, and MONITORING that it happens. The division
+between partners is most lopsided at anticipating and monitoring, while
+deciding is roughly equal. "Waiting until she says something" is exactly that
+shape — taking part in the decision while someone else carries the noticing.
+
+So this is deliberately **not a to-do list**. A task list only starts once
+somebody has already noticed, and the noticing is the work being
+redistributed. The unit is a thing coming up, how soon it needs someone, and
+whether this user RAISED it. `raised` is the measure, not `done`: doing a job
+you were handed is not the labour in question.
+
+**It is private to this user, by their explicit choice.** A shared ledger of
+who carries what becomes evidence in an argument. Do not add partner
+visibility, sharing or comparison without asking — and the stored shape keeps
+that door open rather than assuming it.
+
+**Nothing here scores you.** No percentage, no target, no streak; `loadStats`
+returns counts and there is a test asserting it exposes no score, target or
+streak field. An item noticed three weeks ago and still unraised sorts to the
+top, which is information, not a reprimand.
+
+`ReviewCue` is one quiet card on SUNDAY, on the Vandaag tab, offering a way
+in. Anticipating is a week-scale operation — a daily prompt would turn it
+into the form-filling the Dagstart was just pruned of — and Sunday is the
+evening you can still do something about the week ahead. It never says you
+are behind and never counts the Sundays you skipped.
+
+The list lives in its own `anker_v1_load` key, beside the check-ins rather
+than inside a day: an item is noticed on one day and still true three weeks
+later, so it does not belong to a date the way a mood score does. It is in
+the backup, and import merges by id — a restore can never un-raise something
+you raised.
+
 ## Nothing here may punish a missed day
 
 A habit tool ends habits by punishing gaps, not by being too hard. Four
@@ -327,6 +367,27 @@ encouragement — every one states a fact.
 - **`insights.js`** returns ONE factual line after saving, or null. No praise,
   no "keep it up" — invented cheerfulness is obvious, and from a health tool
   it is worse than silence. There is a test asserting it never congratulates.
+  Its thresholds were once so high it returned null on almost every day, which
+  is what "I fill it in and nothing happens" actually was. Two rules fixed
+  that: the priority tally needs FOUR evenings in a fortnight, not seven, and
+  an extreme mood is named once there are five prior days. Extremes are
+  reported SYMMETRICALLY — an app that mentions your best days and stays
+  quiet about your worst is flattering you by selection, which is the same
+  failure as inventing praise outright. They are phrased in RECORDED days
+  ("van je laatste 7 ingevulde dagen"), never calendar days, because "in 30
+  days" is a lie when six of them were filled in.
+- **`LookbackCard`** shows ONE thing you wrote on an earlier day, picked by
+  `lookback.js`. It is the only honest return the app can give in its first
+  weeks: real pattern-finding needs dense data before an answer would be true
+  rather than merely printable, and printing one sooner is a lie dressed as
+  an insight. Your own sentence from three weeks ago needs no statistics.
+  The pick is DETERMINISTIC (seeded by the date), because this screen remounts
+  after every save and a random pick would flicker and could repeat. It
+  prefers days at least a week old — the point is something you could not
+  recall unaided — but falls back to recent ones, or the card would stay empty
+  for the first week, which is exactly when the habit is least established.
+  It sits directly under the Dagstart, not at the bottom: a reward you must
+  scroll past four cards to collect is not a reward.
 
 The insight is DERIVED on render, never held in state: saving calls
 `onSaved()`, which refreshes the Vandaag cards and remounts the component, so

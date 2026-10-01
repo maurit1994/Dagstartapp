@@ -137,3 +137,64 @@ describe('insightFor', () => {
     }
   })
 })
+
+describe('insightFor: firing early enough to be worth the filling in', () => {
+  const day = (mental, extra = {}) => ({ mental, body: [], note: '', answers: {}, ...extra })
+
+  it('names a high as a fact, in RECORDED days', () => {
+    const checkins = { '2026-09-18': day(5) }
+    for (let d = 1; d <= 6; d += 1) {
+      checkins[`2026-09-${String(18 - d).padStart(2, '0')}`] = day(2)
+    }
+    const out = insightFor(checkins, '2026-09-18')
+    expect(out).toBe('Je hoogste stemming van je laatste 7 ingevulde dagen.')
+  })
+
+  it('names a low just as readily as a high', () => {
+    // Reporting only the good days would be flattery by selection.
+    const checkins = { '2026-09-18': day(1) }
+    for (let d = 1; d <= 6; d += 1) {
+      checkins[`2026-09-${String(18 - d).padStart(2, '0')}`] = day(4)
+    }
+    expect(insightFor(checkins, '2026-09-18')).toBe(
+      'Je laagste stemming van je laatste 7 ingevulde dagen.',
+    )
+  })
+
+  it('says nothing about an extreme on too little data', () => {
+    const checkins = { '2026-09-18': day(5), '2026-09-17': day(2), '2026-09-16': day(2) }
+    const out = insightFor(checkins, '2026-09-18')
+    expect(out).not.toMatch(/hoogste|laagste/)
+  })
+
+  it('counts only days that were actually filled in', () => {
+    // Six entries spread over a month must not be reported as "in 30 days".
+    const checkins = { '2026-09-18': day(5) }
+    for (const key of ['2026-09-16', '2026-09-12', '2026-09-08', '2026-09-05', '2026-08-30']) {
+      checkins[key] = day(2)
+    }
+    expect(insightFor(checkins, '2026-09-18')).toBe(
+      'Je hoogste stemming van je laatste 6 ingevulde dagen.',
+    )
+  })
+
+  it('reports the priority tally from four evenings, not seven', () => {
+    const checkins = { '2026-09-18': day(3) }
+    for (let d = 1; d <= 4; d += 1) {
+      checkins[`2026-09-${String(18 - d).padStart(2, '0')}`] = day(3, {
+        evening: { intention: d <= 2 ? 'done' : 'missed' },
+      })
+    }
+    const out = insightFor(checkins, '2026-09-18')
+    expect(out).toBe('Je prioriteit lukte 2 van de laatste 4 keer.')
+  })
+
+  it('still invents no praise in any of the new lines', () => {
+    const checkins = { '2026-09-18': day(5) }
+    for (let d = 1; d <= 6; d += 1) {
+      checkins[`2026-09-${String(18 - d).padStart(2, '0')}`] = day(1)
+    }
+    const out = insightFor(checkins, '2026-09-18')
+    expect(out).not.toMatch(/goed bezig|knap|trots|ga zo door|geweldig|top!|lekker/i)
+  })
+})

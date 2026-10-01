@@ -13,6 +13,10 @@ import {
   getAllIntentions,
   getIntention,
   KEYS,
+  addLoadItem,
+  getLoadItems,
+  updateLoadItem,
+  deleteLoadItem,
 } from '../storage.js'
 
 beforeEach(() => {
@@ -224,5 +228,94 @@ describe('the daily priority (was its own key before v4)', () => {
     expect(JSON.parse(localStorage.getItem(KEYS.intentions))).toEqual({
       '2026-09-12': 'oud',
     })
+  })
+})
+
+describe('the mental-load list', () => {
+  it('rejects an empty note', () => {
+    expect(addLoadItem('   ')).toBeNull()
+    expect(getLoadItems()).toEqual([])
+  })
+
+  it('stores a note as not-yet-raised', () => {
+    // Noting something and raising it are different acts; the second is the
+    // one this list exists to measure.
+    const item = addLoadItem('tandarts voor de kinderen', 'fortnight')
+    expect(item.raised).toBe(false)
+    expect(item.resolvedAt).toBeNull()
+    expect(item.horizon).toBe('fortnight')
+    expect(getLoadItems()).toHaveLength(1)
+  })
+
+  it('falls back to this week for an unknown horizon', () => {
+    expect(addLoadItem('x', 'ooit').horizon).toBe('week')
+  })
+
+  it('caps the text rather than storing something unbounded', () => {
+    expect(addLoadItem('x'.repeat(500)).text).toHaveLength(140)
+  })
+
+  it('marks one item raised without touching the others', () => {
+    const a = addLoadItem('a')
+    addLoadItem('b')
+    updateLoadItem(a.id, { raised: true })
+    const all = getLoadItems()
+    expect(all.find((i) => i.id === a.id).raised).toBe(true)
+    expect(all.find((i) => i.text === 'b').raised).toBe(false)
+  })
+
+  it('resolves an item without deleting it, so the count still knows', () => {
+    const a = addLoadItem('a')
+    updateLoadItem(a.id, { resolvedAt: 123 })
+    expect(getLoadItems()).toHaveLength(1)
+    expect(getLoadItems()[0].resolvedAt).toBe(123)
+  })
+
+  it('deletes outright when asked', () => {
+    const a = addLoadItem('a')
+    deleteLoadItem(a.id)
+    expect(getLoadItems()).toEqual([])
+  })
+
+  it('leaves a corrupt stored value in place rather than repairing the file', () => {
+    localStorage.setItem(KEYS.load, 'niet eens JSON')
+    expect(getLoadItems()).toEqual([])
+    expect(localStorage.getItem(KEYS.load)).toBe('niet eens JSON')
+  })
+
+  it('goes into the backup', () => {
+    addLoadItem('paspoort verlengen', 'month')
+    const data = exportAll()
+    expect(data.load).toHaveLength(1)
+    expect(data.load[0].text).toBe('paspoort verlengen')
+  })
+
+  it('a restore never un-raises something you already raised', () => {
+    // Merge keeps what is here. Re-importing a backup made before you raised
+    // an item must not roll that back.
+    const a = addLoadItem('tandarts')
+    updateLoadItem(a.id, { raised: true })
+    const stale = {
+      app: 'anker', schemaVersion: 8, checkins: {}, thoughts: [], intentions: {},
+      load: [{ ...a, raised: false }],
+    }
+    importAll(stale, 'merge')
+    expect(getLoadItems()).toHaveLength(1)
+    expect(getLoadItems()[0].raised).toBe(true)
+  })
+
+  it('adds items from a backup that are not here yet', () => {
+    addLoadItem('hier')
+    importAll({
+      app: 'anker', schemaVersion: 8, checkins: {}, thoughts: [], intentions: {},
+      load: [{ id: 'elders', text: 'daar', horizon: 'week', raised: false, createdAt: 1, resolvedAt: null }],
+    }, 'merge')
+    expect(getLoadItems().map((i) => i.text).sort()).toEqual(['daar', 'hier'])
+  })
+
+  it('survives importing a backup from before the list existed', () => {
+    addLoadItem('hier')
+    importAll({ app: 'anker', schemaVersion: 7, checkins: {}, thoughts: [], intentions: {} }, 'merge')
+    expect(getLoadItems()).toHaveLength(1)
   })
 })

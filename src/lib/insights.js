@@ -33,6 +33,7 @@ export function insightFor(checkins, today = getLocalDateKey()) {
 
   const last7 = recentKeys(7, today)
   const last14 = recentKeys(14, today)
+  const last30 = recentKeys(30, today)
 
   // A run of bad nights, counted back from today.
   let badNights = 0
@@ -61,8 +62,29 @@ export function insightFor(checkins, today = getLocalDateKey()) {
     return `${getRegionLabel(persistent[0])} speelde ${persistent[1]} van de laatste 7 dagen.`
   }
 
+  // An extreme, in either direction. Reported symmetrically on purpose: an
+  // app that mentions your best days and stays quiet about your worst is
+  // flattering you by selection, which is the same failure as inventing
+  // praise outright. Phrased in RECORDED days, not calendar days — "in 30
+  // days" would be a lie when only six of them were filled in.
+  const priorMoods = last30
+    .slice(1)
+    .map((key) => checkins[key]?.mental)
+    .filter((value) => typeof value === 'number')
+  if (typeof entry.mental === 'number' && priorMoods.length >= 5) {
+    const counted = priorMoods.length + 1
+    if (priorMoods.every((m) => m < entry.mental)) {
+      return `Je hoogste stemming van je laatste ${counted} ingevulde dagen.`
+    }
+    if (priorMoods.every((m) => m > entry.mental)) {
+      return `Je laagste stemming van je laatste ${counted} ingevulde dagen.`
+    }
+  }
+
   // Today against yesterday, but only when the step is big enough to mean
-  // something. A one-point move is noise.
+  // something. A one-point move is noise. This sits BELOW the extreme above:
+  // a run of recorded days says more than a single step, so the step is the
+  // fallback for when there is not yet enough history for the other.
   const yesterday = getDateKeyDaysAgo(1, new Date(`${today}T12:00:00`))
   const now = entry.mental
   const before = checkins[yesterday]?.mental
@@ -77,10 +99,14 @@ export function insightFor(checkins, today = getLocalDateKey()) {
   }
 
   // How much of the intention actually happened, once there is enough to count.
+  // Four, not seven. Seven evening check-ins inside a fortnight is a level of
+  // consistency the app has to EARN first, so gating the payoff on it meant
+  // the line that justifies filling anything in almost never appeared. Four
+  // is still enough for "2 van de 4" to mean something.
   const outcomes = last14
     .map((key) => checkins[key]?.evening?.intention)
     .filter(Boolean)
-  if (outcomes.length >= 7) {
+  if (outcomes.length >= 4) {
     const reached = outcomes.filter((o) => o === 'done').length
     return `Je prioriteit lukte ${reached} van de laatste ${outcomes.length} keer.`
   }

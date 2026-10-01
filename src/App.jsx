@@ -10,6 +10,9 @@ import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
 import History from './modules/history/History.jsx'
 import Movement from './modules/movement/Movement.jsx'
+import Load from './modules/load/Load.jsx'
+import ReviewCue from './modules/load/ReviewCue.jsx'
+import LookbackCard from './modules/checkin/LookbackCard.jsx'
 import Settings from './modules/settings/Settings.jsx'
 import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
@@ -18,10 +21,12 @@ import { isDagstartDone } from './lib/dagstart.js'
 import { getDateKeyDaysAgo, getLocalDateKey } from './lib/date.js'
 import { getCheckin, getMeta } from './lib/storage.js'
 
-// The app shell's three tabs. `id` drives which module renders below;
-// `label` and `icon` are what the user sees (UI language: Dutch).
+// The app shell's tabs. `id` drives which module renders below; `label` and
+// `icon` are what the user sees (UI language: Dutch). Five is the ceiling at
+// 390px — a sixth would put the labels below a readable size.
 const TABS = [
   { id: 'vandaag', label: 'Vandaag', icon: '☀️' },
+  { id: 'vooruit', label: 'Vooruit', icon: '🧭' },
   { id: 'beweging', label: 'Beweging', icon: '🏃' },
   { id: 'gedachten', label: 'Gedachten', icon: '💭' },
   { id: 'historie', label: 'Historie', icon: '📈' },
@@ -140,11 +145,25 @@ export default function App() {
                   label={viewDay === 'today' ? 'Dagstart' : 'Dagstart gisteren'}
                   onSaved={refresh}
                 />
+                {/* Directly under the morning, because it is the payoff FOR
+                    the morning. At the bottom of the screen — below the body
+                    map, the evening and the extras — it was a reward you had
+                    to scroll past four cards to collect, which is no reward
+                    at all. It asks nothing, so it does not break the
+                    one-thing-at-a-time rule by sitting here. */}
+                {isDagstartDone(getCheckin(viewKey)) && (
+                  <LookbackCard now={viewNow} dateKey={viewKey} />
+                )}
                 {/* Decoupled from the Dagstart on purpose: scanning yourself
                     for pain is a poor way to open a day. Available all day,
                     asked for by nobody. */}
                 <BodyCard now={viewNow} onSaved={refresh} />
                 <EveningCheckin now={viewNow} onSaved={refresh} />
+                {/* Sunday only, and only on today — a cue about the week
+                    ahead makes no sense while you are editing yesterday. */}
+                {viewDay === 'today' && (
+                  <ReviewCue now={viewNow} onOpen={() => setActiveTab('vooruit')} />
+                )}
                 {/* Below everything, and only once the flow is behind you:
                     the optional extras must never compete with the routine. */}
                 {isDagstartDone(getCheckin(viewKey)) && (
@@ -152,6 +171,7 @@ export default function App() {
                 )}
               </div>
             )}
+            {activeTab === 'vooruit' && <Load key={dataVersion} onSaved={refresh} />}
             {activeTab === 'beweging' && (
               <Movement
                 key={`${dataVersion}-${movementDay}`}
