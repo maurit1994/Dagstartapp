@@ -4,7 +4,7 @@ import DaySwitcher from './components/DaySwitcher.jsx'
 import BackupNag from './components/BackupNag.jsx'
 import Intention from './modules/adhd/Intention.jsx'
 import Checkin from './modules/checkin/Checkin.jsx'
-import EveningCheckin from './modules/checkin/EveningCheckin.jsx'
+import EveningCheckin, { EVENING_HOUR } from './modules/checkin/EveningCheckin.jsx'
 import BodyCard from './modules/checkin/BodyCard.jsx'
 import Extras from './modules/checkin/Extras.jsx'
 import Thoughts from './modules/thoughts/Thoughts.jsx'
@@ -18,6 +18,7 @@ import LockScreen from './modules/lock/LockScreen.jsx'
 import { requestPersistentStorage } from './lib/persist.js'
 import { shouldRemindToExport } from './lib/backup.js'
 import { isDagstartDone } from './lib/dagstart.js'
+import { vandaagOrder } from './lib/vandaag.js'
 import { getDateKeyDaysAgo, getLocalDateKey } from './lib/date.js'
 import { getCheckin, getMeta } from './lib/storage.js'
 
@@ -78,6 +79,7 @@ export default function App() {
     return yesterday
   })()
   const viewKey = getLocalDateKey(viewNow)
+  const viewEntry = getCheckin(viewKey)
   const yesterdayEmpty = !isDagstartDone(getCheckin(getDateKeyDaysAgo(1)))
 
   if (lock && !isUnlocked) {
@@ -128,7 +130,10 @@ export default function App() {
 
             {activeTab === 'vandaag' && (
               <div key={`${dataVersion}-${viewDay}`} className="space-y-4">
-                {/* Every card below works on whichever day is selected. */}
+                {/* Pinned: the day you are writing into, and the priority that
+                    is meant to stay in front of you all day. Everything below
+                    them reorders; these two never move, or the screen would
+                    have no fixed point at all. */}
                 <DaySwitcher
                   value={viewDay}
                   onChange={setViewDay}
@@ -140,35 +145,28 @@ export default function App() {
                   }
                 />
                 <Intention now={viewNow} />
-                <Checkin
-                  now={viewNow}
-                  label={viewDay === 'today' ? 'Dagstart' : 'Dagstart gisteren'}
-                  onSaved={refresh}
-                />
-                {/* Directly under the morning, because it is the payoff FOR
-                    the morning. At the bottom of the screen — below the body
-                    map, the evening and the extras — it was a reward you had
-                    to scroll past four cards to collect, which is no reward
-                    at all. It asks nothing, so it does not break the
-                    one-thing-at-a-time rule by sitting here. */}
-                {isDagstartDone(getCheckin(viewKey)) && (
-                  <LookbackCard now={viewNow} dateKey={viewKey} />
-                )}
-                {/* Decoupled from the Dagstart on purpose: scanning yourself
-                    for pain is a poor way to open a day. Available all day,
-                    asked for by nobody. */}
-                <BodyCard now={viewNow} onSaved={refresh} />
-                <EveningCheckin now={viewNow} onSaved={refresh} />
-                {/* Sunday only, and only on today — a cue about the week
-                    ahead makes no sense while you are editing yesterday. */}
-                {viewDay === 'today' && (
-                  <ReviewCue now={viewNow} onOpen={() => setActiveTab('vooruit')} />
-                )}
-                {/* Below everything, and only once the flow is behind you:
-                    the optional extras must never compete with the routine. */}
-                {isDagstartDone(getCheckin(viewKey)) && (
-                  <Extras now={viewNow} onSaved={refresh} />
-                )}
+                {/* Whatever the day is asking of you floats to the top, the
+                    record of the day sits under it, and the optional tools
+                    sink. lib/vandaag.js decides; this only maps ids to cards.
+                    The keys are stable so React MOVES a card rather than
+                    remounting it — a remount here would throw away an open
+                    body-map draft mid-edit. */}
+                {vandaagOrder({
+                  morningDone: isDagstartDone(viewEntry),
+                  eveningSaved: (viewEntry?.evening ?? null) !== null,
+                  isEvening: viewNow.getHours() >= EVENING_HOUR,
+                }).map((id) => (
+                  <VandaagCard
+                    key={id}
+                    id={id}
+                    now={viewNow}
+                    viewKey={viewKey}
+                    viewDay={viewDay}
+                    morningDone={isDagstartDone(viewEntry)}
+                    onSaved={refresh}
+                    onOpenVooruit={() => setActiveTab('vooruit')}
+                  />
+                ))}
               </div>
             )}
             {activeTab === 'vooruit' && <Load key={dataVersion} onSaved={refresh} />}
@@ -191,4 +189,43 @@ export default function App() {
       )}
     </div>
   )
+}
+
+/**
+ * One Vandaag card, picked by id.
+ *
+ * Only a lookup: which cards exist and in what order is lib/vandaag.js's
+ * decision, and each card still decides for itself whether it has anything to
+ * show (LookbackCard and ReviewCue return null on their own).
+ */
+function VandaagCard({ id, now, viewKey, viewDay, morningDone, onSaved, onOpenVooruit }) {
+  switch (id) {
+    case 'checkin':
+      return (
+        <Checkin
+          now={now}
+          label={viewDay === 'today' ? 'Dagstart' : 'Dagstart gisteren'}
+          onSaved={onSaved}
+        />
+      )
+    case 'lookback':
+      // The payoff FOR the morning, so it only appears once there is one.
+      return morningDone ? <LookbackCard now={now} dateKey={viewKey} /> : null
+    case 'evening':
+      return <EveningCheckin now={now} onSaved={onSaved} />
+    case 'body':
+      // Decoupled from the Dagstart on purpose: scanning yourself for pain is
+      // a poor way to open a day. Available all day, asked for by nobody.
+      return <BodyCard now={now} onSaved={onSaved} />
+    case 'review':
+      // Sunday only, and only on today — a cue about the week ahead makes no
+      // sense while you are editing yesterday.
+      return viewDay === 'today' ? <ReviewCue now={now} onOpen={onOpenVooruit} /> : null
+    case 'extras':
+      // Only once the flow is behind you: the optional extras must never
+      // compete with the routine.
+      return morningDone ? <Extras now={now} onSaved={onSaved} /> : null
+    default:
+      return null
+  }
 }

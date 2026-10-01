@@ -184,6 +184,40 @@ the readings are discarded: a Body Battery from a watch left on the nightstand
 is not a reading. `gedragen: false` is itself a real answer and keeps the
 sleep block alive — it differs from never having been asked.
 
+## Vandaag reorders itself
+
+The cards are NOT in a fixed order. `lib/vandaag.js` ranks them and `App.jsx`
+only maps ids to components, so the rule is testable without a browser — an
+order that is subtly wrong looks fine in a screenshot.
+
+Three ranks:
+
+0. **Asking for you.** At most one card is ever here, because `isDagstartDone`
+   already guarantees the morning and the evening are never both open. In the
+   evening this is the evening check-in, which is why it appears ABOVE the
+   morning: at 20:00 the Dagstart is something you read, not something you
+   fill in.
+1. **The record.** What you have written today, in the order it happened:
+   morning, the look-back it earned, then the evening. This half is meant to
+   read like a diary, so it is chronological and never reshuffled by what you
+   touched last.
+2. **Always there.** Body map, extras, the Sunday cue, and the evening card
+   while it is still SHUT. None is ever due — the body map is "asked for by
+   nobody" — so none of them outranks the thing you actually did.
+
+Within a rank the order is `VANDAAG_CARDS`, and `body` sits before `evening`
+there on purpose: a shut evening card is one line of placeholder text, and
+letting it push the body map down once put the figure clean off the bottom of
+a phone screen. Two e2e suites caught that by asserting the figure fits the
+viewport.
+
+Keys are stable per card id so React MOVES a card rather than remounting it;
+a remount here would throw away an open body-map draft mid-edit.
+
+The `DaySwitcher` and `Intention` are pinned above all of it. Everything else
+moves, so the screen needs a fixed point, and the priority is meant to stay in
+front of you all day regardless.
+
 ## One thing at a time on Vandaag
 
 The Vandaag screen shows the Dagstart OR the evening, never both open at once.
