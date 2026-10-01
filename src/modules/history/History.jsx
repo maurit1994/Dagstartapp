@@ -6,7 +6,16 @@ import { formatDateKeyNL } from '../../lib/date.js'
 import { calculateStreak, daysInWindow, longestStreak } from '../../lib/streak.js'
 import { filledCount, recentSeries } from '../../lib/trends.js'
 import { scaleColor, scaleFill } from '../../lib/scales.js'
-import { FOCUS_SCALE } from '../../lib/questions.js'
+import {
+  ALL_QUESTION_IDS,
+  FOCUS_SCALE,
+  PRIORITY_OUTCOMES,
+  QUESTIONS,
+  REACTIVITY_SCALE,
+  SLEEP_SCALE,
+} from '../../lib/questions.js'
+import { formatSleepDuration } from '../../lib/sleep.js'
+import { PHYSIO_OUTCOMES, realSessions, sessionName } from '../../lib/movement.js'
 
 export default function History() {
   const [checkins] = useState(() => getAllCheckins())
@@ -133,7 +142,112 @@ function FocusWeek({ checkins }) {
   )
 }
 
+/** One "label — value" row, skipped entirely when there is no value. */
+function Row({ label, children }) {
+  if (children === null || children === undefined || children === '') return null
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="shrink-0 text-anker-muted">{label}</dt>
+      <dd className="text-right text-anker-text">{children}</dd>
+    </div>
+  )
+}
+
+/**
+ * Everything recorded on one day, shown when you tap it.
+ *
+ * Rendered from ALL_QUESTION_IDS, never from today's rules: which questions
+ * get asked depends on the mode and the weekday and those rules have already
+ * changed twice. An answer given under an older rule must stay readable here,
+ * or the record would quietly shrink every time the app changes its mind.
+ *
+ * Every block is skipped when it holds nothing, so a day where you only
+ * tapped a face shows one line rather than a page of dashes.
+ */
+function DayDetail({ entry }) {
+  const answered = ALL_QUESTION_IDS.filter((id) => entry.answers?.[id])
+  const sleep = entry.sleep
+  const evening = entry.evening
+  const sessions = realSessions(entry.movement)
+  const physio = PHYSIO_OUTCOMES.find((o) => o.value === entry.movement?.physio)
+  const outcome = PRIORITY_OUTCOMES.find((o) => o.value === evening?.intention)
+  const duration = sleep ? formatSleepDuration(sleep.bedtijd, sleep.wakkertijd) : null
+
+  return (
+    <div className="mt-3 space-y-4 border-t border-anker-border pt-3 text-sm">
+      {answered.length > 0 && (
+        <dl className="space-y-2">
+          {answered.map((id) => (
+            <div key={id}>
+              <dt className="text-xs uppercase tracking-wide text-anker-muted">
+                {QUESTIONS[id]?.q ?? id}
+              </dt>
+              <dd className="mt-0.5 whitespace-pre-wrap text-anker-text">
+                {entry.answers[id]}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {(sleep || entry.eerste) && (
+        <dl className="space-y-1">
+          <Row label="Slaap">{sleep?.subjectief ? SLEEP_SCALE[sleep.subjectief] : null}</Row>
+          <Row label="In bed">
+            {sleep?.bedtijd && sleep?.wakkertijd
+              ? `${sleep.bedtijd} – ${sleep.wakkertijd}${duration ? ` (${duration})` : ''}`
+              : null}
+          </Row>
+          <Row label="Body Battery">{sleep?.garmin?.bodyBattery ?? null}</Row>
+          <Row label="Slaapscore">{sleep?.garmin?.slaapscore ?? null}</Row>
+          <Row label="HRV">{sleep?.garmin?.hrvStatus ?? null}</Row>
+          <Row label="Eerste ding">{entry.eerste}</Row>
+        </dl>
+      )}
+
+      {(sessions.length > 0 || physio) && (
+        <dl className="space-y-1">
+          <Row label="Sport">
+            {sessions.length > 0
+              ? sessions
+                  .map((x) => [sessionName(x), x.duration, x.intensity].filter(Boolean).join(', '))
+                  .join(' · ')
+              : null}
+          </Row>
+          <Row label="Fysio">{physio ? physio.label : null}</Row>
+          <Row label="Voor je fysio">{entry.movement?.physioNote || null}</Row>
+        </dl>
+      )}
+
+      {evening && (
+        <dl className="space-y-1">
+          <Row label="Focus">{evening.focus ? FOCUS_SCALE[evening.focus] : null}</Row>
+          <Row label="Prioriteit">{outcome ? `${outcome.emoji} ${outcome.label}` : null}</Row>
+          <Row label="Reactiviteit">
+            {evening.reactief ? REACTIVITY_SCALE[evening.reactief] : null}
+          </Row>
+          <Row label="Cafeïne na 14:00">
+            {evening.cafeine === null || evening.cafeine === undefined
+              ? null
+              : evening.cafeine
+                ? 'Ja'
+                : 'Nee'}
+          </Row>
+          <Row label="Einde van de dag">
+            {MOOD_SCALE.find((m) => m.value === evening.mental)?.label ?? null}
+          </Row>
+        </dl>
+      )}
+
+      {evening?.note && (
+        <p className="whitespace-pre-wrap text-anker-text">{evening.note}</p>
+      )}
+    </div>
+  )
+}
+
 function DayCard({ dateKey, entry }) {
+  const [isOpen, setIsOpen] = useState(false)
   const mood = MOOD_SCALE.find((m) => m.value === entry.mental)
   const worst = entry.body.reduce(
     (max, b) => Math.max(max, b.pain, b.tension),
@@ -142,7 +256,15 @@ function DayCard({ dateKey, entry }) {
 
   return (
     <li className="rounded-xl border border-anker-border bg-anker-bg p-3">
-      <div className="flex items-center gap-3">
+      {/* The whole header is the control: a day row is a big target on a
+          phone, and a separate chevron would be a 20px one. */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-label={`${formatDateKeyNL(dateKey)} ${isOpen ? 'dichtklappen' : 'openklappen'}`}
+        className="flex w-full items-center gap-3 text-left"
+      >
         <span className="text-2xl leading-none">{mood?.emoji ?? '—'}</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-anker-text">{formatDateKeyNL(dateKey)}</p>
@@ -152,7 +274,10 @@ function DayCard({ dateKey, entry }) {
               : `${entry.body.length} plek${entry.body.length === 1 ? '' : 'ken'} · ergste ${worst}/5`}
           </p>
         </div>
-      </div>
+        <span aria-hidden="true" className="shrink-0 text-anker-muted">
+          {isOpen ? '▴' : '▾'}
+        </span>
+      </button>
 
       {entry.body.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -173,7 +298,7 @@ function DayCard({ dateKey, entry }) {
         </p>
       )}
 
-      {entry.evening && (
+      {!isOpen && entry.evening && (
         <p className="mt-2 text-xs text-anker-muted">
           Avond: {MOOD_SCALE.find((m) => m.value === entry.evening.mental)?.emoji ?? '—'}
           {entry.evening.intention &&
@@ -184,6 +309,8 @@ function DayCard({ dateKey, entry }) {
             }`}
         </p>
       )}
+
+      {isOpen && <DayDetail entry={entry} />}
     </li>
   )
 }

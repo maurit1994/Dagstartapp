@@ -498,6 +498,24 @@ The insight is DERIVED on render, never held in state: saving calls
 state set just before that call is thrown away before it is ever painted.
 This is the third time that remount has eaten something — check for it.
 
+## Historie: a day opens when you tap it
+
+`DayCard` is a disclosure, not a label. The collapsed row is a glance — face,
+date, body summary — and tapping it reveals `DayDetail`: the written answers,
+sleep and its Garmin readings, the first thing that morning, sport and physio,
+and the whole evening. In place rather than on its own screen, so two days
+can be open side by side and there is no back button to find.
+
+`DayDetail` renders answers from `ALL_QUESTION_IDS`, never from today's rules
+— the same reason the Dagstart summary does. Which questions get asked depends
+on the mode and the weekday and those rules have already changed twice; an
+answer given under an older rule has to stay readable, or the record quietly
+shrinks every time the app changes its mind.
+
+Every block is skipped when it holds nothing. A day where you only tapped a
+face shows one line, not a page of dashes — `Row` returns null rather than
+rendering an em dash, because a screen full of "—" reads as data you lost.
+
 ## Hosting
 
 `.github/workflows/deploy-pages.yml` publishes to GitHub Pages on every push
