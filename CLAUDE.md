@@ -36,8 +36,11 @@ none should be added.
   `sleep.js` (duration across midnight), `dagstart.js` (is the morning done),
   `scales.js` (the 1-5 colour ramp), `clock.js` (the 24-hour dial's
   geometry), `movement.js` (sport/physio options and the week tally),
-  `migrate.js` (schema versions), `streak.js`, `insights.js` (the one line
-  shown after saving), `backup.js`, `persist.js`.
+  `mentalload.js` (the household look-ahead list), `migrate.js` (schema
+  versions), `streak.js`, `insights.js` (the one line shown after saving,
+  and the evening's closing fact), `lookback.js` (one past answer, shown
+  back), `trends.js` (the last N days of one field), `vandaag.js` (what
+  order the Vandaag cards appear in), `backup.js`, `persist.js`.
 - `src/components/` — shared presentational UI.
 - `src/App.jsx` — the only file that knows about all modules; it wires tabs
   and gates the app behind the PIN screen when one is set.
