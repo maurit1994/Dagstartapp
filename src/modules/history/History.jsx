@@ -4,6 +4,9 @@ import { getAllCheckins } from '../../lib/storage.js'
 import { getRegionLabel, MOOD_SCALE } from '../../lib/regions.js'
 import { formatDateKeyNL } from '../../lib/date.js'
 import { calculateStreak, daysInWindow, longestStreak } from '../../lib/streak.js'
+import { filledCount, recentSeries } from '../../lib/trends.js'
+import { scaleColor, scaleFill } from '../../lib/scales.js'
+import { FOCUS_SCALE } from '../../lib/questions.js'
 
 export default function History() {
   const [checkins] = useState(() => getAllCheckins())
@@ -56,6 +59,8 @@ export default function History() {
         </dl>
       </Screen>
 
+      <FocusWeek checkins={checkins} />
+
       <Screen title="Per dag">
         <ul className="space-y-3">
           {dateKeys.map((dateKey) => (
@@ -64,6 +69,67 @@ export default function History() {
         </ul>
       </Screen>
     </>
+  )
+}
+
+const DAY_LETTERS = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za']
+
+/**
+ * The last seven days of focus.
+ *
+ * Focus was WRITE-ONLY until this existed: you scored it every evening and
+ * nothing in the app ever showed it to you. That is the sharpest version of
+ * "I fill it in and nothing comes out".
+ *
+ * Raw values, no average and no trend line. Six points cannot support a claim
+ * about a pattern, and a chart that implies one is a lie with axes on it.
+ * These are your own numbers in order, which claims nothing.
+ *
+ * Colour comes from the VALUE via scales.js, like every other 1-5 scale —
+ * never the accent, which marks what to do next and nothing else.
+ */
+function FocusWeek({ checkins }) {
+  const series = recentSeries(checkins, (entry) => entry?.evening?.focus)
+  const filled = filledCount(series)
+  if (filled === 0) return null
+
+  return (
+    <Screen title="Focus" tone="quiet">
+      <ol className="flex gap-1.5">
+        {series.map(({ dateKey, value }) => {
+          const [y, m, d] = dateKey.split('-').map(Number)
+          const date = new Date(y, m - 1, d)
+          return (
+            <li key={dateKey} className="flex-1">
+              <div
+                aria-label={`${formatDateKeyNL(dateKey)}: ${
+                  value === null ? 'niet ingevuld' : `focus ${value} van 5 — ${FOCUS_SCALE[value]}`
+                }`}
+                style={
+                  value === null
+                    ? undefined
+                    : { borderColor: scaleColor(value, 'up'), background: scaleFill(value, 'up') }
+                }
+                className={`flex h-12 items-center justify-center rounded-lg border text-sm ${
+                  value === null
+                    ? 'border-dashed border-anker-border text-anker-muted/50'
+                    : 'text-anker-text'
+                }`}
+              >
+                {value ?? ''}
+              </div>
+              <p className="mt-1 text-center text-[10px] text-anker-muted">
+                {DAY_LETTERS[date.getDay()]}
+              </p>
+            </li>
+          )
+        })}
+      </ol>
+      {/* A count, not a verdict — a missed evening is never coloured as one. */}
+      <p className="mt-3 text-sm text-anker-muted">
+        Ingevuld op {filled} van de laatste 7 dagen.
+      </p>
+    </Screen>
   )
 }
 

@@ -113,3 +113,29 @@ export function insightFor(checkins, today = getLocalDateKey()) {
 
   return null
 }
+
+/**
+ * One line to close the day with, shown after saving the evening.
+ *
+ * The evening's counterpart to insightFor, under the same rules: a fact, or
+ * nothing. The arc from morning to evening is the one honest thing available
+ * from TODAY alone — it needs no history, no threshold and no statistics,
+ * which is exactly why it can be here from the first day rather than in some
+ * month when enough data has accumulated.
+ *
+ * Both readings are the same 1-5 mood scale, so the comparison is real and
+ * not two different rulers held side by side.
+ *
+ * @param {object} entry one migrated day entry
+ * @returns {string|null}
+ */
+export function eveningInsightFor(entry) {
+  const morning = entry?.mental
+  const evening = entry?.evening?.mental
+  if (typeof morning !== 'number' || typeof evening !== 'number') return null
+
+  if (evening === morning) {
+    return `Je begon en eindigt de dag op ${morning}.`
+  }
+  return `Je begon op ${morning} en eindigt op ${evening}.`
+}

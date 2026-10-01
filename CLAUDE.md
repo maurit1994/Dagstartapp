@@ -201,6 +201,53 @@ pain per region with tension beside it; a second single-number pain question
 put the same thing on screen twice, at lower fidelity. The field stays in the
 schema and old answers still render — only the question is gone.
 
+### The evening opens SHORT, like the Dagstart
+
+Three things are in view — **Prioriteit behaald?**, **Focus vandaag**,
+**Hoe eindig je de dag?** — with "Dag afsluiten" directly under them. The
+other four (reactivity, caffeine, first thing, note) sit behind "Nog 4 dingen
+erbij?", collapsed every evening and never remembered, exactly like Lite.
+
+The priority comes FIRST because it closes the loop the morning opened and
+quotes your own words back; focus and the closing mood follow. Before this the
+evening was seven fields in one scroll with the save button at the bottom —
+all-or-nothing at the hour you have least left.
+
+**Four of the seven evening fields used to be WRITE-ONLY.** Only `intention`
+(History + insights) and `mental` (History) were ever read back; focus,
+reactivity, caffeine and first thing went in and never came out. Collecting a
+number nobody looks at is the sharpest version of "I fill it in and nothing
+happens". `FocusWeek` in History fixed that for focus. Caffeine and first
+thing are still unread: they only pay off as CORRELATES, which needs months,
+so they are an investment, not a return — do not pretend otherwise in the UI,
+and if they are still unread in a few months, cut them rather than leave them
+looking answered-for.
+
+`trends.js`'s `recentSeries` returns the raw series and nothing derived — no
+average, no trend line, no correlation. Six points cannot support a claim
+about a pattern, and a chart that implies one is a lie with axes on it. Gaps
+stay as `null` and render dashed, because a strip that silently closes up
+would make six scattered days look like a solid week.
+
+`eveningInsightFor` closes the day with ONE fact: the arc from the morning's
+mood to the evening's ("Je begon op 4 en eindigt op 2."). It is the only
+honest line available from TODAY alone — no history, no threshold, no
+statistics — which is why it works on the first evening rather than in some
+month when enough data has accumulated. Both ends are the same 1-5 scale, so
+it is one ruler and not two. Like every line in `insights.js` it reports a
+decline as readily as a rise, and there is a test for that.
+
+**"Eerste ding vanochtend" is asked at the wrong end of the day.** It is
+answered at 22:00 about 07:00 — the same retrieval error that moved `goed`
+out of the short morning set. Its purpose is to test whether the morning
+affects that night's SLEEP, and measurement error in a predictor attenuates
+exactly the correlation it is meant to reveal. Two things to know before
+building that analysis: the day alignment is off by one (morning behaviour on
+day D affects the night recorded as `entry[D+1].sleep`, because Anker stores
+sleep in the following morning's Dagstart), and the four options are mutually
+exclusive, so "Daglicht" competes with "Bewegen" when you may have done both
+— it measures a ranking, not an exposure.
+
 ## Colour has exactly three jobs
 
 Defined in `src/index.css`. Keep them apart — the moment colour becomes
