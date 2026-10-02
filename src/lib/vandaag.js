@@ -13,10 +13,13 @@
  *     already guarantees the morning and the evening are never both open.
  *     This is the one thing the app wants from you at this hour.
  *
- * 1 — THE RECORD. What you have already written today, in the order it
- *     happened: morning, then the look-back it earned, then the evening. This
- *     is the half that should read like a diary, so it is chronological and
- *     never reshuffled by how recently you touched it.
+ * 1 — THE RECORD. What you have already written today. In the EVENING the
+ *     evening comes first, even once it is filled in: the user asked for it
+ *     above the morning "de hele avond", not just while it was still due.
+ *     Before the evening hour the same three read chronologically — morning,
+ *     the look-back it earned, then the evening. So the record is ordered by
+ *     where you are in the day, not by what you touched last; the latter
+ *     would make the screen jump for a reason you cannot see.
  *
  * 2 — ALWAYS THERE. The body map, the extras, the Sunday cue, and the evening
  *     card while it is still shut. None of these is ever due: the body map is
@@ -52,6 +55,16 @@ export const VANDAAG_CARDS = [
 ]
 
 /**
+ * The record, in the order it is read at this hour.
+ *
+ * Only these three are ever rank 1. Rank 2 keeps VANDAAG_CARDS' order in both
+ * cases, which is what stops a SHUT evening card climbing above the body map
+ * when the flip is on.
+ */
+const RECORD_CHRONOLOGICAL = ['checkin', 'lookback', 'evening']
+const RECORD_EVENING_FIRST = ['evening', 'checkin', 'lookback']
+
+/**
  * @param {object} state
  * @param {boolean} state.morningDone  isDagstartDone for the viewed day
  * @param {boolean} state.eveningSaved an evening block exists for that day
@@ -75,12 +88,28 @@ export function cardRanks({ morningDone, eveningSaved, isEvening }) {
 }
 
 /**
- * The cards in the order they should be rendered.
+ * Where a card sits WITHIN its rank.
  *
- * A stable sort on the rank, so within one rank the cards keep the order of
- * VANDAAG_CARDS and nothing jumps about for reasons the user cannot see.
+ * Rank 1 follows the record order for this hour; everything else follows
+ * VANDAAG_CARDS, so the evening-first flip can never reach rank 2 and lift a
+ * shut evening card above the body map.
  */
+function withinRank(id, rank, isEvening) {
+  if (rank === 1) {
+    return (isEvening ? RECORD_EVENING_FIRST : RECORD_CHRONOLOGICAL).indexOf(id)
+  }
+  return VANDAAG_CARDS.indexOf(id)
+}
+
+/** The cards in the order they should be rendered. */
 export function vandaagOrder(state) {
   const ranks = cardRanks(state)
-  return [...VANDAAG_CARDS].sort((a, b) => ranks[a] - ranks[b])
+  return [...VANDAAG_CARDS].sort((a, b) => {
+    const byRank = ranks[a] - ranks[b]
+    if (byRank !== 0) return byRank
+    return (
+      withinRank(a, ranks[a], state.isEvening) -
+      withinRank(b, ranks[b], state.isEvening)
+    )
+  })
 }

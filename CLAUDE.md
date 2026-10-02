@@ -200,19 +200,24 @@ Three ranks:
    evening this is the evening check-in, which is why it appears ABOVE the
    morning: at 20:00 the Dagstart is something you read, not something you
    fill in.
-1. **The record.** What you have written today, in the order it happened:
-   morning, the look-back it earned, then the evening. This half is meant to
-   read like a diary, so it is chronological and never reshuffled by what you
-   touched last.
+1. **The record.** What you have written today. In the EVENING the evening
+   comes FIRST, even once it is filled in — the user asked for it above the
+   morning "de hele avond", not only while it was still due, choosing
+   current-first over chronological. Before the evening hour the same three
+   read chronologically: morning, the look-back it earned, then the evening.
+   So the record is ordered by where you are in the day, never by what you
+   touched last — the latter would make the screen jump for a reason you
+   cannot see.
 2. **Always there.** Body map, extras, the Sunday cue, and the evening card
    while it is still SHUT. None is ever due — the body map is "asked for by
    nobody" — so none of them outranks the thing you actually did.
 
-Within a rank the order is `VANDAAG_CARDS`, and `body` sits before `evening`
-there on purpose: a shut evening card is one line of placeholder text, and
-letting it push the body map down once put the figure clean off the bottom of
-a phone screen. Two e2e suites caught that by asserting the figure fits the
-viewport.
+Within a rank: rank 1 follows the record order for this hour, everything else
+follows `VANDAAG_CARDS`. Keeping the evening-first flip inside rank 1 is what
+stops it reaching rank 2 and lifting a SHUT evening card above the body map —
+that card is one line of placeholder text, and letting it push the figure down
+once put it clean off the bottom of a phone screen. `body` therefore sits
+before `evening` in `VANDAAG_CARDS`, and there is a test for each half.
 
 Keys are stable per card id so React MOVES a card rather than remounting it;
 a remount here would throw away an open body-map draft mid-edit.

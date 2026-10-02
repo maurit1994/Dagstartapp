@@ -32,9 +32,19 @@ describe('vandaagOrder', () => {
     expect(order.indexOf('checkin')).toBeLessThan(order.indexOf('evening'))
   })
 
-  it('reads chronologically once the day is closed — morning, then evening', () => {
-    // The diary half: what happened, in the order it happened.
+  it('keeps the evening on top ALL evening, even once it is filled in', () => {
+    // Asked for explicitly: above the morning "de hele avond", not only
+    // while it is still due. Current-first beats chronological here.
     const order = vandaagOrder(dayClosed)
+    expect(order[0]).toBe('evening')
+    expect(order.indexOf('evening')).toBeLessThan(order.indexOf('checkin'))
+  })
+
+  it('reads chronologically OUTSIDE the evening', () => {
+    // Fill the evening early with "Nu al invullen" and at midday the day
+    // still reads morning first — the flip follows the clock, not the data.
+    const filledEarly = { morningDone: true, eveningSaved: true, isEvening: false }
+    const order = vandaagOrder(filledEarly)
     expect(order.indexOf('checkin')).toBeLessThan(order.indexOf('lookback'))
     expect(order.indexOf('lookback')).toBeLessThan(order.indexOf('evening'))
   })
@@ -51,8 +61,11 @@ describe('vandaagOrder', () => {
   })
 
   it('keeps the look-back directly under the Dagstart that earned it', () => {
-    const order = vandaagOrder(dayClosed)
-    expect(order.indexOf('lookback')).toBe(order.indexOf('checkin') + 1)
+    // True at every hour: the flip moves the evening, never the pair.
+    for (const state of [dayClosed, { morningDone: true, eveningSaved: true, isEvening: false }]) {
+      const order = vandaagOrder(state)
+      expect(order.indexOf('lookback')).toBe(order.indexOf('checkin') + 1)
+    }
   })
 
   it('always returns every card exactly once', () => {
@@ -101,9 +114,15 @@ describe('a shut evening card never outranks a usable one', () => {
     expect(vandaagOrder(evening).indexOf('evening')).toBe(0)
   })
 
-  it('still reads morning-then-evening once the day is closed', () => {
+  it('does not let the evening-first flip reach the optional cards', () => {
+    // The flip is a RECORD-rank rule. If it leaked into rank 2 it would lift
+    // a shut evening card back above the body map — the bug this describes.
+    const order = vandaagOrder({ morningDone: false, eveningSaved: false, isEvening: true })
+    expect(order.indexOf('body')).toBeLessThan(order.indexOf('evening'))
+  })
+
+  it('still puts a filled evening above the body map', () => {
     const order = vandaagOrder(dayClosed)
-    expect(order.indexOf('checkin')).toBeLessThan(order.indexOf('evening'))
     expect(order.indexOf('evening')).toBeLessThan(order.indexOf('body'))
   })
 })
